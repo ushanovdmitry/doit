@@ -553,6 +553,7 @@ class TestJobTask(object):
         t2 = pickle.loads(t1p)
         assert 4 == t2.actions[0].py_callable()
 
+    @pytest.mark.xfail('PLAT_IMPL == "PyPy"')  # pypy can handle it :)
     def test_not_picklable_raises_InvalidTask(self):
         # create a large enough recursive obj so pickle fails
         d1 = {}

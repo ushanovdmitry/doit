@@ -452,7 +452,6 @@ class Task(object):
         # never executed in sub-process
         to_pickle['uptodate'] = None
         to_pickle['value_savers'] = None
-        to_pickle['teardown'] = None
         # can be re-recreated on demand
         to_pickle['_action_instances'] = None
         return to_pickle
