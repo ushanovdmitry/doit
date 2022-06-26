@@ -123,12 +123,10 @@ class Command(object):
             self._cmdparser.overwrite_defaults(self.config_vals)
         return self._cmdparser
 
-
     def get_options(self):
         """@reutrn list of CmdOption
         """
         return [CmdOption(opt) for opt in self.cmd_options]
-
 
     def execute(self, opt_values, pos_args):  # pragma: no cover
         """execute command
@@ -136,7 +134,6 @@ class Command(object):
         :param pos_args: (list) of cmd-line positional arguments
         """
         raise NotImplementedError()
-
 
     def parse_execute(self, in_args):
         """helper. just parse parameters and execute command
@@ -438,8 +435,9 @@ class DoitCmdBase(Command):
     base_options = (opt_depfile, opt_backend, opt_codec,
                     opt_check_file_uptodate)
 
-    def __init__(self, task_loader, cmds=None, **kwargs):
+    def __init__(self, dag, task_loader, cmds=None, **kwargs):
         super(DoitCmdBase, self).__init__(**kwargs)
+        self.dag = dag
         self.sel_tasks = None  # selected tasks for command
         self.sel_default_tasks = True  # False if tasks were specified from command line
         self.dep_manager = None
@@ -447,18 +445,15 @@ class DoitCmdBase(Command):
         self.loader = task_loader
         self._backends = self.get_backends()
 
-
     def get_options(self):
         """from base class - merge base_options, loader_options and cmd_options
         """
         opt_list = (self.base_options + self.loader.cmd_options + self.cmd_options)
         return [CmdOption(opt) for opt in opt_list]
 
-
     def _execute(self):  # pragma: no cover
         """to be subclassed - actual command implementation"""
         raise NotImplementedError
-
 
     @staticmethod
     def check_minversion(minversion):
@@ -498,7 +493,6 @@ class DoitCmdBase(Command):
             # user specified class
             return codec
 
-
     def get_backends(self):
         """return PluginDict of DB backends, including core and plugins"""
         backend_map = {'dbm': DbmDB, 'json': JsonDB, 'sqlite3': SqliteDB}
@@ -514,15 +508,15 @@ class DoitCmdBase(Command):
 
         return backend_map
 
-
     def execute(self, params, args):
         """load dodo.py, set attributes and call self._execute
 
         :param params: instance of cmdparse.DefaultUpdate
         :param args: list of string arguments (containing task names)
         """
-        self.loader.setup(params)
-        dodo_config = self.loader.load_doit_config()
+        # self.loader.setup(params)
+        # dodo_config = self.loader.load_doit_config()
+        dodo_config = {}
 
         # merge config values from dodo.py into params
         params.update_defaults(dodo_config)
@@ -553,7 +547,7 @@ class DoitCmdBase(Command):
         # register dependency manager in global registry:
         Globals.dep_manager = self.dep_manager
         # load tasks
-        self.task_list = self.loader.load_tasks(cmd=self, pos_args=args)
+        self.task_list = self.dag
 
         # hack to pass parameter into _execute() calls that are not part
         # of command line options

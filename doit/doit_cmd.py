@@ -156,7 +156,7 @@ class DoitMain(object):
     DOIT_CMDS = (Help, Run, List, Info, Clean, Forget, Ignore, DumpDB,
                  Strace, TabCompletion, ResetDep)
 
-    def __init__(self, task_loader=None,
+    def __init__(self, dag, task_loader=None,
                  config_filenames=('pyproject.toml', 'doit.cfg'),
                  extra_config=None):
         """
@@ -183,14 +183,13 @@ class DoitMain(object):
         for section, vals in config_in.as_dict().items():
             self.config[section].update(vals)
 
-
+        self.dag = dag
 
     @staticmethod
     def print_version():
         """print doit version (includes path location)"""
         print(".".join([str(i) for i in VERSION]))
         print("lib @", os.path.dirname(os.path.abspath(__file__)))
-
 
     def get_cmds(self):
         """get all sub-commands
@@ -203,7 +202,6 @@ class DoitMain(object):
         # plugin commands
         sub_cmds.add_plugins(self.config, 'COMMAND')
         return sub_cmds
-
 
     def process_args(self, cmd_args):
         """process cmd line set "global" variables/parameters
@@ -220,14 +218,12 @@ class DoitMain(object):
                 args_no_vars.append(arg)
         return args_no_vars
 
-
     def get_commands(self):  # pragma: no cover
         '''Notice for application subclassing DoitMain with old API'''
         msg = ('ERROR: You are using doit version {}, it is too new! '
                'This application requires version <= 0.27.\n')
         sys.stderr.write(msg.format('.'.join(str(v) for v in VERSION)))
         sys.exit(3)
-
 
     def run(self, all_args):
         """entry point for all commands
@@ -283,6 +279,7 @@ class DoitMain(object):
 
         # execute command
         command = sub_cmds.get_plugin(cmd_name)(
+            dag=self.dag,
             task_loader=task_loader,
             config=self.config,
             bin_name=self.BIN_NAME,

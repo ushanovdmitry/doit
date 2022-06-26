@@ -167,7 +167,6 @@ class Task(object):
                   'meta': ((dict,), (None,))
                   }
 
-
     def __init__(self, name, actions, file_dep=(), targets=(),
                  task_dep=(), uptodate=(),
                  calc_dep=(), setup=(), clean=(), teardown=(),

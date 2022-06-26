@@ -4,10 +4,7 @@ import importlib
 
 def entry_points_impl():
     # entry_points is available since 3.8 but "horrible inefficient"
-    if sys.version_info < (3, 10):
-        from importlib_metadata import entry_points
-    else:
-        from importlib.metadata import entry_points
+    from importlib.metadata import entry_points
     return entry_points
 
 
@@ -83,7 +80,7 @@ class PluginDict(dict):
         Plugins from entry-point have higher priority
         """
         self.update(self._from_ini(cfg_data, category))
-        self.update(self._from_entry_points(category))
+        # self.update(self._from_entry_points(category))
 
     def _from_ini(self, cfg_data, category):
         """plugins from INI file
@@ -101,12 +98,11 @@ class PluginDict(dict):
         result = {}
         group = f"{self.entry_point_prefix}.{category}"
         entry_points = entry_points_impl()
-        for point in entry_points(group=group):
+        for point in entry_points()[group]:
             name = point.name
             location = "{}:{}".format(point.module, point.attr)
             result[name] = PluginEntry(category, name, location)
         return result
-
 
     def get_plugin(self, key):
         """load and return a single plugin"""

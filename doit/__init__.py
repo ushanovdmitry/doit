@@ -22,6 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
+import sys
 
 from doit.version import VERSION
 
@@ -35,11 +36,22 @@ from doit.api import run
 from doit.tools import load_ipython_extension
 from doit.globals import Globals
 
+from doit.task import Task
 
-__all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals']
+DAG = list
+
+
+__all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', DAG]
+
 
 def get_initial_workdir():
     """working-directory from where the doit command was invoked on shell"""
     return loader.initial_workdir
 
 assert load_ipython_extension  # silence pyflakes
+
+
+def main(dag):
+    from doit.doit_cmd import DoitMain
+    DoitMain(dag).run(sys.argv[1:])
+
