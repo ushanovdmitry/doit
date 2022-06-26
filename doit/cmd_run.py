@@ -10,7 +10,6 @@ from .runner import Runner, MRunner, MThreadRunner
 from .cmd_base import DoitCmdBase
 from . import reporter
 
-
 # verbosity
 opt_verbosity = {
     'name': 'verbosity',
@@ -24,7 +23,6 @@ opt_verbosity = {
 [default: 1]"""
 }
 
-
 # select output file
 opt_outfile = {
     'name': 'outfile',
@@ -34,7 +32,6 @@ opt_outfile = {
     'default': sys.stdout,
     'help': "write output into file [default: stdout]"
 }
-
 
 # always execute task
 opt_always = {
@@ -58,7 +55,6 @@ opt_continue = {
              "[default: %(default)s]"),
 }
 
-
 opt_single = {
     'name': 'single',
     'short': 's',
@@ -69,7 +65,6 @@ opt_single = {
              "[default: %(default)s]"),
 }
 
-
 opt_num_process = {
     'name': 'num_process',
     'short': 'n',
@@ -78,7 +73,6 @@ opt_num_process = {
     'default': 0,
     'help': "number of subprocesses [default: %(default)s]"
 }
-
 
 # reporter
 opt_reporter = {
@@ -103,7 +97,6 @@ opt_parallel_type = {
 """
 }
 
-
 # pdb post-mortem
 opt_pdb = {
     'name': 'pdb',
@@ -113,7 +106,6 @@ opt_pdb = {
     'default': None,
     'help': "get into PDB (python debugger) post-mortem in case of unhandled exception"
 }
-
 
 # use ".*" as default regex for delayed tasks without explicitly specified regex
 opt_auto_delayed_regex = {
@@ -152,11 +144,9 @@ class Run(DoitCmdBase):
                    opt_parallel_type, opt_pdb, opt_single,
                    opt_auto_delayed_regex, opt_report_failure_verbosity)
 
-
     def __init__(self, **kwargs):
         super(Run, self).__init__(**kwargs)
         self.reporters = self.get_reporters()  # dict
-
 
     def get_reporters(self):
         """return dict of all available reporters
@@ -184,7 +174,6 @@ class Run(DoitCmdBase):
             self.cmdparser['reporter'].choices = choices
 
         return reporters
-
 
     def _execute(self, outfile,
                  verbosity=None, always=False, continue_=False,

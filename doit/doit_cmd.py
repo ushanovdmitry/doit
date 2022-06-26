@@ -249,7 +249,8 @@ class DoitMain(object):
                 self.print_version()
                 return 0
             if all_args[0] == "--help":
-                help = Help(task_loader=task_loader,
+                help = Help(dag=self.dag,
+                            task_loader=task_loader,
                             config=self.config,
                             bin_name=self.BIN_NAME,
                             cmds=sub_cmds)
@@ -263,7 +264,6 @@ class DoitMain(object):
             loader_params, cmd_args = loader_opt_parser.parse_only(all_args)
         except CmdParseError:
             # normal to fail parsing if RUN command is not explicit
-            loader_params = {}
             cmd_args = all_args
 
         # get "global vars" from cmd-line
@@ -280,11 +280,9 @@ class DoitMain(object):
         # execute command
         command = sub_cmds.get_plugin(cmd_name)(
             dag=self.dag,
-            task_loader=task_loader,
             config=self.config,
             bin_name=self.BIN_NAME,
             cmds=sub_cmds,
-            opt_vals=loader_params,
         )
 
         try:

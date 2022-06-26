@@ -1,27 +1,3 @@
-"""doit - Automation Tool
-
-The MIT License
-
-Copyright (c) 2008-present Eduardo Naufel Schettino
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-"""
 import sys
 
 from doit.version import VERSION
@@ -36,22 +12,37 @@ from doit.api import run
 from doit.tools import load_ipython_extension
 from doit.globals import Globals
 
+from doit.action import PythonAction
 from doit.task import Task
 
-DAG = list
+
+class DAG:
+    def __init__(self):
+        self.task_list = []
+
+    def append(self, _task: Task):
+        self.task_list.append(_task)
+
+    def cli_main(self):
+        from doit.doit_cmd import DoitMain
+        DoitMain(self.task_list).run(sys.argv[1:])
+
+    def run(self, targets=None):
+        from doit.cmd_run import Run
+        runner = Run(
+            dag=self.task_list,
+        )
+        runner.execute({}, targets)
 
 
-__all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', DAG]
+__all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', 'DAG', 'PythonAction']
 
 
 def get_initial_workdir():
     """working-directory from where the doit command was invoked on shell"""
     return loader.initial_workdir
 
+
 assert load_ipython_extension  # silence pyflakes
 
-
-def main(dag):
-    from doit.doit_cmd import DoitMain
-    DoitMain(dag).run(sys.argv[1:])
 

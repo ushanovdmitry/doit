@@ -1,7 +1,6 @@
-from doit import Task, DAG
-from doit.action import PythonAction
+from doit import Task, DAG, PythonAction
+
 from pathlib import Path
-import doit
 
 
 def foo(targets: list):
@@ -14,11 +13,11 @@ def foo(targets: list):
 if __name__ == '__main__':
     dag = DAG()
 
-    dag.append(
-        Task(
-            'first_task', [PythonAction(foo, )],
-            targets=[Path('first_task_output.txt')]
-        )
+    t1 = Task(
+        'first_task', [PythonAction(foo, )], targets=[Path('first_task_output.txt')]
     )
 
-    doit.main(dag)
+    dag.append(t1)
+
+    dag.cli_main()
+

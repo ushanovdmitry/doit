@@ -1,18 +1,5 @@
 *.pyc
-.doit.db
-doit.egg-info
-.coverage
-.cache
-dist
-MANIFEST.in
-revision.txt
+.doit.db.*
 
-tests/data/*
-doc/_build
-doc/samples/*.o
-doc/samples/*.in
-doc/samples/*.out
-doc/samples/file*
-
-dev
-.vscode
+.idea
+.venv

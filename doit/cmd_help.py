@@ -2,7 +2,6 @@ from .exceptions import InvalidDodoFile
 from .cmdparse import TaskParse, CmdOption
 from .cmd_base import DoitCmdBase
 
-
 HELP_TASK = """
 
 Task Dictionary parameters
@@ -103,7 +102,6 @@ watch:
 """
 
 
-
 class Help(DoitCmdBase):
     doc_purpose = "show help"
     doc_usage = "[TASK] [COMMAND]"
@@ -118,14 +116,12 @@ class Help(DoitCmdBase):
         self._cmds = cmds
         self.cmds = cmds.to_dict()  # dict name - Command class
 
-
     def print_usage(self, cmds):
         """print doit "usage" (basic help) instructions
 
         :var cmds: dict name -> Command class
         """
         print("doit -- automation tool")
-        print("http://pydoit.org")
         print('')
         print("Commands")
         for cmd_name in sorted(cmds.keys()):
@@ -135,12 +131,11 @@ class Help(DoitCmdBase):
         print("")
         cmd_help = "  {} help".format(self.bin_name)
         for line in [
-                "{}              show help / reference",
-                "{} task         show help on task dictionary fields",
-                "{} <command>    show command usage",
-                "{} <task-name>  show task usage"]:
+            "{}              show help / reference",
+            "{} task         show help on task dictionary fields",
+            "{} <command>    show command usage",
+            "{} <task-name>  show task usage"]:
             print(line.format(cmd_help))
-
 
     @staticmethod
     def print_task_help():
