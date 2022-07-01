@@ -6,6 +6,7 @@ import inspect
 from collections import OrderedDict
 from collections.abc import Callable
 from pathlib import PurePath
+from typing import Any
 
 from .cmdparse import CmdOption, TaskParse
 from .exceptions import BaseFail, InvalidTask

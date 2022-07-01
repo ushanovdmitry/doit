@@ -1,6 +1,3 @@
-"""Implements actions used by doit tasks
-"""
-
 import os
 import subprocess
 import inspect
@@ -18,13 +15,11 @@ class CmdAction(BaseAction):
     """
     Command line action. Spawns a new process.
 
-    @ivar action(str,list,callable): subprocess command string or string list,
+    @ivar action(str,list): subprocess command string or string list,
          see subprocess.Popen first argument.
-         It may also be a callable that generates the command string.
          Strings may contain python mappings with the keys: dependencies,
          changed and targets. ie. "zip %(targets)s %(changed)s"
     @ivar task(Task): reference to task that contains this action
-    @ivar save_out: (str) name used to save output in `values`
     @ivar shell: use shell to execute command
                  see subprocess.Popen `shell` attribute
     @ivar encoding (str): encoding of the process output
@@ -39,10 +34,6 @@ class CmdAction(BaseAction):
                  encoding='utf-8', decode_error='replace', buffering=0,
                  **pkwargs):
 
-        for forbidden in ('stdout', 'stderr'):
-            if forbidden in pkwargs:
-                raise Exception(f"CmdAction can't take param named '{forbidden}'.")
-
         self.action = action
         self.task = task
         self.result = None
@@ -52,31 +43,6 @@ class CmdAction(BaseAction):
         self.decode_error = decode_error
         self.pkwargs = pkwargs
         self.buffering = buffering
-
-    def _print_process_output(self, process, input_, capture, realtime):
-        """Reads 'input_' until process is terminated.
-        Writes 'input_' content to 'capture' (string)
-        and 'realtime' stream
-        """
-        if self.buffering:
-            read = lambda: input_.read(self.buffering)
-        else:
-            # line buffered
-            read = lambda: input_.readline()
-        while True:
-            try:
-                line = read().decode(self.encoding, self.decode_error)
-            except Exception:
-                # happens when fails to decoded input
-                process.terminate()
-                input_.read()
-                raise
-            if not line:
-                break
-            capture.write(line)
-            if realtime:
-                realtime.write(line)
-                realtime.flush()  # required if on byte buffering mode
 
     def execute(self):
         """
@@ -110,7 +76,7 @@ class CmdAction(BaseAction):
             raise Exception(f"Command failed: '{action}' returned {process.returncode}")
 
     def expand_action(self):
-        """Expand action using task meta informations if action is a string.
+        """Expand action using task meta information if action is a string.
         Convert `Path` elements to `str` if action is a list.
         @returns: string -> expanded string if action is a string
                   list - string -> expanded list of command elements
@@ -118,7 +84,7 @@ class CmdAction(BaseAction):
         if not self.task:
             return self.action
 
-        # cant expand keywords if action is a list of strings
+        # can't expand keywords if action is a list of strings
         if isinstance(self.action, list):
             action = []
             for element in self.action:
@@ -127,10 +93,10 @@ class CmdAction(BaseAction):
                 elif isinstance(element, PurePath):
                     action.append(str(element))
                 else:
-                    msg = ("%s. CmdAction element must be a str "
-                           "or Path from pathlib. Got '%r' (%s)")
-                    raise InvalidTask(
-                        msg % (self.task.name, element, type(element)))
+                    msg = f"{self.task.name}. CmdAction element must be a str" \
+                          f" or Path from pathlib. Got '{element!r}' ({type(element)})"
+                    raise Exception(msg)
+
             return action
 
         subs_dict = {
@@ -163,10 +129,10 @@ class CmdAction(BaseAction):
             return self.action.format(**subs_dict) % subs_dict
 
     def __str__(self):
-        return "Cmd: %s" % self._action
+        return "Cmd: %s" % self.action
 
     def __repr__(self):
-        return "<CmdAction: '%s'>" % str(self._action)
+        return "<CmdAction: '%s'>" % str(self.action)
 
 
 class PythonAction(BaseAction):
@@ -304,4 +270,4 @@ def create_action(action, task_ref):
         return PythonAction(action, task=task_ref)
 
     msg = f"Task '{task_ref.name}': invalid '{action}' type. got: {type(action)}"
-    raise InvalidTask(msg)
+    raise Exception(msg)
