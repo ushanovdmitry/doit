@@ -173,7 +173,7 @@ class Runner():
 
         # finally execute it!
         self.reporter.execute_task(task)
-        return task.execute(self.stream)
+        return task.execute()
 
 
     def process_task_result(self, node, base_fail):

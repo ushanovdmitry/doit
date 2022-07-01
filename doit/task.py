@@ -1,4 +1,3 @@
-
 """Tasks are the main abstractions managed by doit"""
 
 import os
@@ -12,6 +11,8 @@ from .cmdparse import CmdOption, TaskParse
 from .exceptions import BaseFail, InvalidTask
 from .action import create_action, PythonAction
 from .dependency import UptodateCalculator
+
+from .action import BaseAction
 
 
 def first_line(doc):
@@ -37,6 +38,7 @@ class DelayedLoader(object):
                         will create
     :ivar created: (bool) whether this creator was already executed or not
     """
+
     def __init__(self, creator, executed=None, target_regex=None, creates=None):
         self.creator = creator
         self.task_dep = executed
@@ -52,7 +54,7 @@ class DelayedLoader(object):
 DelayedLoaded = False
 
 
-class Stream():
+class Stream:
     """Control task output stream verbosity
 
     :ivar verbosity: 0,1,2 see Task.execute
@@ -104,7 +106,7 @@ class IOConfig:
         return f'IOConfig(capture={self.capture})'
 
 
-class Task(object):
+class Task:
     """Task
 
     @ivar name string
@@ -143,31 +145,9 @@ class Task(object):
     """
 
     DEFAULT_VERBOSITY = 1
-    string_types = (str, )
-    # list of valid types/values for each task attribute.
-    valid_attr = {'basename': (string_types, ()),
-                  'name': (string_types, ()),
-                  'actions': ((list, tuple), (None,)),
-                  'file_dep': ((list, tuple), ()),
-                  'task_dep': ((list, tuple), ()),
-                  'uptodate': ((list, tuple), ()),
-                  'calc_dep': ((list, tuple), ()),
-                  'targets': ((list, tuple), ()),
-                  'setup': ((list, tuple), ()),
-                  'clean': ((list, tuple), (True,)),
-                  'teardown': ((list, tuple), ()),
-                  'doc': (string_types, (None,)),
-                  'params': ((list, tuple,), ()),
-                  'pos_arg': (string_types, (None,)),
-                  'verbosity': ((), (None, 0, 1, 2,)),
-                  'io': ((dict,), (None,)),
-                  'getargs': ((dict,), ()),
-                  'title': ((Callable,), (None,)),
-                  'watch': ((list, tuple), ()),
-                  'meta': ((dict,), (None,))
-                  }
 
-    def __init__(self, name, actions, file_dep=(), targets=(),
+    def __init__(self, name: str, action: BaseAction,
+                 file_dep=(), targets=(),
                  task_dep=(), uptodate=(),
                  calc_dep=(), setup=(), clean=(), teardown=(),
                  subtask_of=None, has_subtask=False,
@@ -180,25 +160,6 @@ class Task(object):
         """
 
         getargs = getargs or {}  # default
-        self.check_attr(name, 'name', name, self.valid_attr['name'])
-        self.check_attr(name, 'actions', actions, self.valid_attr['actions'])
-        self.check_attr(name, 'file_dep', file_dep, self.valid_attr['file_dep'])
-        self.check_attr(name, 'task_dep', task_dep, self.valid_attr['task_dep'])
-        self.check_attr(name, 'uptodate', uptodate, self.valid_attr['uptodate'])
-        self.check_attr(name, 'calc_dep', calc_dep, self.valid_attr['calc_dep'])
-        self.check_attr(name, 'targets', targets, self.valid_attr['targets'])
-        self.check_attr(name, 'setup', setup, self.valid_attr['setup'])
-        self.check_attr(name, 'clean', clean, self.valid_attr['clean'])
-        self.check_attr(name, 'teardown', teardown, self.valid_attr['teardown'])
-        self.check_attr(name, 'doc', doc, self.valid_attr['doc'])
-        self.check_attr(name, 'params', params, self.valid_attr['params'])
-        self.check_attr(name, 'pos_arg', pos_arg, self.valid_attr['pos_arg'])
-        self.check_attr(name, 'verbosity', verbosity, self.valid_attr['verbosity'])
-        self.check_attr(name, 'io', io, self.valid_attr['io'])
-        self.check_attr(name, 'getargs', getargs, self.valid_attr['getargs'])
-        self.check_attr(name, 'title', title, self.valid_attr['title'])
-        self.check_attr(name, 'watch', watch, self.valid_attr['watch'])
-        self.check_attr(name, 'meta', meta, self.valid_attr['meta'])
 
         if '=' in name:
             msg = "Task '{}': name must not use the char '=' (equal sign)."
@@ -212,12 +173,8 @@ class Task(object):
         self.setup_tasks = list(setup)
 
         # actions
-        self.io = IOConfig(io or {})
         self._action_instances = None
-        if actions is None:
-            self._actions = []
-        else:
-            self._actions = list(actions[:])
+        self.action = create_action(action, self)
 
         self._init_deps(file_dep, task_dep, calc_dep)
 
@@ -250,15 +207,16 @@ class Task(object):
             self.clean_actions = ()
         else:
             self._remove_targets = False
-            self.clean_actions = [create_action(a, self, 'clean') for a in clean]
+            self.clean_actions = [create_action(a, self) for a in clean]
 
-        self.teardown = [create_action(a, self, 'teardown') for a in teardown]
+        self.teardown = [create_action(a, self) for a in teardown]
         self.doc = self._init_doc(doc)
         self.watch = watch
         self.meta = meta
         # just indicate if actions were executed at all
         self.executed = False
 
+        self.hidden = False
 
     def _init_deps(self, file_dep, task_dep, calc_dep):
         """init for dependency related attributes"""
@@ -279,7 +237,6 @@ class Task(object):
         if calc_dep:
             self._expand_calc_dep(calc_dep)
 
-
     def _init_targets(self, items):
         """convert valid targets to `str`"""
         targets = []
@@ -292,7 +249,6 @@ class Task(object):
                 msg = ("%s. target must be a str or Path from pathlib. Got '%r' (%s)")
                 raise InvalidTask(msg % (self.name, target, type(target)))
         return targets
-
 
     def _init_uptodate(self, items):
         """wrap uptodate callables"""
@@ -321,7 +277,6 @@ class Task(object):
                 raise InvalidTask(msg % (self.name, item))
         return uptodate
 
-
     def _expand_file_dep(self, file_dep):
         """put input into file_dep"""
         for dep in file_dep:
@@ -334,7 +289,6 @@ class Task(object):
                        "Got '%r' (%s)")
                 raise InvalidTask(msg % (self.name, dep, type(dep)))
 
-
     def _expand_task_dep(self, task_dep):
         """convert task_dep input into actaul task_dep and wild_dep"""
         for dep in task_dep:
@@ -343,18 +297,15 @@ class Task(object):
             else:
                 self.task_dep.append(dep)
 
-
     def _expand_calc_dep(self, calc_dep):
         """calc_dep input"""
         for dep in calc_dep:
             if dep not in self.calc_dep:
                 self.calc_dep.add(dep)
 
-
     def _extend_uptodate(self, uptodate):
         """add/extend uptodate values"""
         self.uptodate.extend(self._init_uptodate(uptodate))
-
 
     # FIXME should support setup also
     _expand_map = {
@@ -363,13 +314,13 @@ class Task(object):
         'calc_dep': _expand_calc_dep,
         'uptodate': _extend_uptodate,
     }
+
     def update_deps(self, deps):
         """expand all kinds of dep input"""
         for dep, dep_values in deps.items():
             if dep not in self._expand_map:
                 continue
             self._expand_map[dep](self, dep_values)
-
 
     def init_options(self, args=None):
         """Put default values on options.
@@ -414,7 +365,6 @@ class Task(object):
 
         return [result_dep(t, setup_dep=True) for t in check_result]
 
-
     @staticmethod
     def _init_doc(doc):
         """process task "doc" attribute"""
@@ -443,16 +393,6 @@ class Task(object):
         msg += "{%s} got:%r %s" % (accept, value, type(value))
         raise InvalidTask(msg)
 
-
-    @property
-    def actions(self):
-        """lazy creation of action instances"""
-        if self._action_instances is None:
-            self._action_instances = [
-                create_action(a, self, 'actions') for a in self._actions]
-        return self._action_instances
-
-
     def save_extra_values(self):
         """run value_savers updating self.values"""
         for value_saver in self.value_savers:
@@ -461,20 +401,18 @@ class Task(object):
     def overwrite_verbosity(self, stream):
         self.verbosity = stream.effective_verbosity(self.verbosity)
 
-    def execute(self, stream):
+    def execute(self):
         """Executes the task.
         @return failure: see CmdAction.execute
         """
         self.executed = True
         self.init_options()
-        task_stdout, task_stderr = stream._get_out_err(self.verbosity)
-        for action in self.actions:
-            action_return = action.execute(task_stdout, task_stderr)
-            if isinstance(action_return, BaseFail):
-                return action_return
-            self.result = action.result
-            self.values.update(action.values)
 
+        action_return = self.action.execute()
+        if isinstance(action_return, BaseFail):
+            return action_return
+        self.result = self.action.result
+        self.values.update(self.action.values)
 
     def execute_teardown(self, stream):
         """Executes task's teardown
@@ -485,7 +423,6 @@ class Task(object):
             action_return = action.execute(task_stdout, task_stderr)
             if isinstance(action_return, BaseFail):
                 return action_return
-
 
     def clean(self, outstream, dryrun):
         """Execute task's clean
@@ -525,10 +462,8 @@ class Task(object):
             return self.custom_title(self)
         return self.name
 
-
     def __repr__(self):
         return f"<Task: {self.name}>"
-
 
     def __getstate__(self):
         """remove attributes that never used on process that only execute tasks
@@ -568,7 +503,6 @@ class Task(object):
         return self.name < other.name
 
 
-
 def dict_to_task(task_dict):
     """Create a task instance from dictionary.
 
@@ -594,7 +528,6 @@ def dict_to_task(task_dict):
     return Task(**task_dict)
 
 
-
 def clean_targets(task, dryrun):
     """remove all targets from a task"""
     for target in sorted(task.targets, reverse=True):
@@ -617,6 +550,7 @@ def clean_targets(task, dryrun):
 class result_dep(UptodateCalculator):
     """check if result of the given task was modified
     """
+
     def __init__(self, dep_task_name, setup_dep=False):
         '''
         :param setup_dep: controls if dependent task is task_dep or setup
@@ -632,7 +566,6 @@ class result_dep(UptodateCalculator):
             task.setup_tasks.append(self.dep_name)
         else:
             task.task_dep.append(self.dep_name)
-
 
     def _result_single(self):
         """get result from a single task"""
@@ -656,7 +589,6 @@ class result_dep(UptodateCalculator):
             dep_result = self._result_group(dep_task)
         return dep_result
 
-
     def __call__(self, task, values):
         """return True if result is the same as last run"""
         dep_task = self.tasks_dict[self.dep_name]
@@ -665,6 +597,7 @@ class result_dep(UptodateCalculator):
         def result_saver():
             # get latest value after execution of dependent task
             return {self.result_name: self._get_dep_result(dep_task)}
+
         task.value_savers.append(result_saver)
 
         last_success = values.get(self.result_name)

@@ -11,7 +11,6 @@ import subprocess
 from . import exceptions
 from .action import CmdAction, PythonAction
 from .task import result_dep  # imported for backward compatibility
-result_dep  # pyflakes
 
 
 # action

@@ -8,6 +8,8 @@ from io import StringIO
 
 from .exceptions import BaseFail
 
+from .task import Task
+
 
 class ConsoleReporter(object):
     """Default reporter. print results on console/terminal (stdout/stderr)
@@ -32,16 +34,15 @@ class ConsoleReporter(object):
         """called just after tasks have been loaded before execution starts"""
         pass
 
-
     def get_status(self, task):
         """called when task is selected (check if up-to-date)"""
         pass
 
-    def execute_task(self, task):
+    def execute_task(self, task: Task):
         """called when execution starts"""
         # ignore tasks that do not define actions
         # ignore private/hidden tasks (tasks that start with an underscore)
-        if task.actions and (task.name[0] != '_'):
+        if not task.hidden:
             self.write('.  %s\n' % task.title())
 
     def add_failure(self, task, fail: BaseFail):
@@ -76,7 +77,6 @@ class ConsoleReporter(object):
     def teardown_task(self, task):
         """called when starts the execution of teardown action"""
         pass
-
 
     def _write_failure(self, result, write_exception=True):
         msg = '%s - taskid:%s\n' % (result['exception'].get_name(),
@@ -130,7 +130,6 @@ class ExecutedOnlyReporter(ConsoleReporter):
         pass
 
 
-
 class ZeroReporter(ConsoleReporter):
     """Report only internal errors from doit"""
     desc = 'report only internal errors from doit'
@@ -161,6 +160,7 @@ class ErrorOnlyReporter(ZeroReporter):
 
 class TaskResult(object):
     """result object used by JsonReporter"""
+
     # FIXME what about returned value from python-actions ?
     def __init__(self, task):
         self.task = task
