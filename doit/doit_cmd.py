@@ -278,7 +278,8 @@ class DoitMain(object):
             cmd_name = args.pop(0)
 
         # execute command
-        command = sub_cmds.get_plugin(cmd_name)(
+        Plugin = sub_cmds.get_plugin(cmd_name)
+        command = Plugin(
             dag=self.dag,
             config=self.config,
             bin_name=self.BIN_NAME,

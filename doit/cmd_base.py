@@ -8,7 +8,7 @@ from .globals import Globals
 from . import version
 from .cmdparse import CmdOption, CmdParse
 from .exceptions import InvalidCommand, InvalidDodoFile
-from .dependency import CHECKERS, DbmDB, JsonDB, SqliteDB, Dependency, JSONCodec
+from .dependency import CHECKERS, DbmDB, JsonDB, SqliteDB, Dependency, JSONCodec, MD5Checker
 from .action import CmdAction
 from .plugin import PluginDict
 from . import loader
@@ -441,7 +441,7 @@ class DoitCmdBase(Command):
         opt_list = (self.base_options + self.cmd_options)
         return [CmdOption(opt) for opt in opt_list]
 
-    def _execute(self):  # pragma: no cover
+    def _execute(self, **kwargs):  # pragma: no cover
         """to be subclassed - actual command implementation"""
         raise NotImplementedError
 
@@ -506,19 +506,14 @@ class DoitCmdBase(Command):
 
         # set selected tasks for command
         self.sel_default_tasks = len(args) == 0
-        self.sel_tasks = args or params.get('default_tasks')
+        self.sel_tasks = args or None
 
-        # create dep manager
-        db_class = self._backends.get(params['backend'])
-        checker_cls = self.get_checker_cls(params['check_file_uptodate'])
-        codec_cls = self.get_codec_cls(params['codec_cls'])
-        # note the command have the responsibility to call dep_manager.close()
-
-        if self.dep_manager is None:
-            # dep_manager might have been already set (used on unit-test)
-            self.dep_manager = Dependency(
-                db_class, params['dep_file'], checker_cls=checker_cls,
-                codec_cls=codec_cls)
+        self.dep_manager = Dependency(
+            DbmDB,
+            '.doit.db',
+            checker_cls=MD5Checker,
+            codec_cls=JSONCodec
+        )
 
         # register dependency manager in global registry:
         Globals.dep_manager = self.dep_manager
@@ -530,7 +525,7 @@ class DoitCmdBase(Command):
         params['pos_args'] = args
         params['continue_'] = params.get('continue')
         # hack: determine if value came from command line or config
-        params['force_verbosity'] = 'verbosity' in params._non_default_keys
+        params['force_verbosity'] = False
 
         # magic - create dict based on signature of _execute() method.
         # this done so that _execute() have a nice API with name parameters
