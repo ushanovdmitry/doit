@@ -6,18 +6,19 @@ import pickle
 import queue
 
 import cloudpickle
+import loguru
 
 from .exceptions import InvalidTask, BaseFail
 from .exceptions import TaskFailed, SetupError, DependencyError, UnmetDependency
 from .task import Stream, DelayedLoaded
-
 
 # execution result.
 SUCCESS = 0
 FAILURE = 1
 ERROR = 2
 
-class Runner():
+
+class Runner:
     """Task runner
 
     run_all()
@@ -29,17 +30,16 @@ class Runner():
       finish()
 
     """
-    def __init__(self, dep_manager, reporter, continue_=False,
+
+    def __init__(self, dep_manager, continue_=False,
                  always_execute=False, stream=None):
         """
         @param dep_manager: DependencyBase
-        @param reporter: reporter object to be used
         @param continue_: (bool) execute all tasks even after a task failure
         @param always_execute: (bool) execute even if up-to-date or ignored
         @param stream: (task.Stream) global verbosity
         """
         self.dep_manager = dep_manager
-        self.reporter = reporter
         self.continue_ = continue_
         self.always_execute = always_execute
         self.stream = stream if stream else Stream(0)
@@ -47,7 +47,6 @@ class Runner():
         self.teardown_list = []  # list of tasks to be teardown
         self.final_result = SUCCESS  # until something fails
         self._stop_running = False
-
 
     def _handle_task_error(self, node, base_fail):
         """handle all task failures/errors
@@ -58,7 +57,6 @@ class Runner():
         assert isinstance(base_fail, BaseFail)
         node.run_status = "failure"
         self.dep_manager.remove_success(node.task)
-        self.reporter.add_failure(node.task, base_fail)
         # only return FAILURE if no errors happened.
         if isinstance(base_fail, TaskFailed) and self.final_result != ERROR:
             self.final_result = FAILURE
@@ -66,7 +64,6 @@ class Runner():
             self.final_result = ERROR
         if not self.continue_:
             self._stop_running = True
-
 
     def _get_task_args(self, task, tasks_dict):
         """get values from other tasks"""
@@ -93,7 +90,6 @@ class Runner():
                 arg_value = get_value(task_id, key_name)
             task.options[arg] = arg_value
 
-
     def select_task(self, node, tasks_dict):
         """Returns bool, task should be executed
          * side-effect: set task.options
@@ -108,8 +104,6 @@ class Runner():
 
         # if run_status is not None, it was already calculated
         if node.run_status is None:
-
-            self.reporter.get_status(task)
 
             # overwrite with effective verbosity
             task.overwrite_verbosity(self.stream)
@@ -142,7 +136,6 @@ class Runner():
 
             # if task is up-to-date skip it
             if node.run_status == 'up-to-date':
-                self.reporter.skip_uptodate(task)
                 task.values = self.dep_manager.get_values(task.name)
                 return False
 
@@ -164,17 +157,13 @@ class Runner():
 
         return True
 
-
     def execute_task(self, task):
         """execute task's actions"""
         # register cleanup/teardown
         if task.teardown:
             self.teardown_list.append(task)
 
-        # finally execute it!
-        self.reporter.execute_task(task)
         return task.execute()
-
 
     def process_task_result(self, node, base_fail):
         """handles result"""
@@ -190,11 +179,9 @@ class Runner():
                 base_fail = DependencyError(msg)
             else:
                 node.run_status = "successful"
-                self.reporter.add_success(task)
                 return
         # task error
         self._handle_task_error(node, base_fail)
-
 
     def run_tasks(self, task_dispatcher):
         """This will actually run/execute the tasks.
@@ -217,20 +204,31 @@ class Runner():
             if not self.select_task(node, task_dispatcher.tasks):
                 continue
 
-            base_fail = self.execute_task(node.task)
-            self.process_task_result(node, base_fail)
+            try:
+                self.execute_task(node.task)
+                node.task.save_extra_values()
+                self.dep_manager.save_success(node.task)
+                node.run_status = "successful"
 
+                loguru.logger.info(f"Successfully executed {node.task.name}")
+            except Exception:
+                loguru.logger.exception(f"Failure in {node.task.name}")
+
+                node.run_status = "failure"
+                self.dep_manager.remove_success(node.task)
+
+                if self.continue_:
+                    pass
+                else:
+                    raise
 
     def teardown(self):
         """run teardown from all tasks"""
         for task in reversed(self.teardown_list):
-            self.reporter.teardown_task(task)
             result = task.execute_teardown(self.stream)
             if result:
                 msg = "ERROR: task '%s' teardown action" % task.name
                 error = SetupError(msg, result)
-                self.reporter.cleanup_error(error)
-
 
     def finish(self):
         """finish running tasks"""
@@ -239,26 +237,16 @@ class Runner():
         self.teardown()
 
         # report final results
-        self.reporter.complete_run()
         return self.final_result
-
 
     def run_all(self, task_dispatcher):
         """entry point to run tasks
         @ivar task_dispatcher (TaskDispatcher)
         """
         try:
-            if hasattr(self.reporter, 'initialize'):
-                self.reporter.initialize(task_dispatcher.tasks,
-                                         task_dispatcher.selected_tasks)
             self.run_tasks(task_dispatcher)
-        except InvalidTask as exception:
-            self.reporter.runtime_error(str(exception))
-            self.final_result = ERROR
         finally:
             self.finish()
-        return self.final_result
-
 
 
 # JobXXX objects send from main process to sub-process for execution
@@ -266,9 +254,11 @@ class JobHold(object):
     """Indicates there is no task ready to be executed"""
     type = object()
 
+
 class JobTask(object):
     """Contains a Task object"""
     type = object()
+
     def __init__(self, task):
         self.name = task.name
         try:
@@ -283,12 +273,15 @@ Original exception {}: {}
 """
             raise InvalidTask(msg.format(self.name, excp.__class__, excp))
 
+
 class JobTaskPickle(object):
     """dict of Task object excluding attributes that might be unpicklable"""
     type = object()
+
     def __init__(self, task):
         # actually a dict to be pickled
         self.task_dict = task.pickle_safe_dict()
+
     @property
     def name(self):
         return self.task_dict['name']
@@ -301,6 +294,7 @@ class MReporter(object):
                        'reporter': <reporter-method-name>}
     on runner's 'result_q'
     """
+
     def __init__(self, runner, reporter_cls):
         self.runner = runner
         self.reporter_cls = reporter_cls
@@ -309,11 +303,13 @@ class MReporter(object):
         """substitute any reporter method with a dispatching method"""
         if not hasattr(self.reporter_cls, method_name):
             raise AttributeError(method_name)
+
         def rep_method(task):
             self.runner.result_q.put({
                 'name': task.name,
                 'reporter': method_name,
             })
+
         return rep_method
 
     def complete_run(self):
@@ -347,11 +343,10 @@ class MRunner(Runner):
                         always_execute=always_execute, stream=stream)
         self.num_process = num_process
 
-        self.free_proc = 0   # number of free process
+        self.free_proc = 0  # number of free process
         self.task_dispatcher = None  # TaskDispatcher retrieve tasks
-        self.tasks = None    # dict of task instances by name
+        self.tasks = None  # dict of task instances by name
         self.result_q = None
-
 
     def __getstate__(self):
         # multiprocessing on Windows will try to pickle self.
@@ -395,12 +390,10 @@ class MRunner(Runner):
                 else:
                     return JobTaskPickle(task)
 
-
     def _run_tasks_init(self, task_dispatcher):
         """initialization for run_tasks"""
         self.task_dispatcher = task_dispatcher
         self.tasks = task_dispatcher.tasks
-
 
     def _run_start_processes(self, job_q, result_q):
         """create and start sub-processes
@@ -443,7 +436,6 @@ class MRunner(Runner):
         for action, output in zip(task.actions, result['err']):
             action.err = output
         self.process_task_result(node, base_fail)
-
 
     def run_tasks(self, task_dispatcher):
         """controls subprocesses task dispatching and result collection
@@ -499,7 +491,6 @@ class MRunner(Runner):
             assert 'reporter' in result
             task = task_dispatcher.tasks[result['name']]
             getattr(self.reporter, result['reporter'])(task)
-
 
     def execute_task_subprocess(self, job_q, result_q, reporter_class):
         """executed on child processes
@@ -557,13 +548,16 @@ class MRunner(Runner):
 class MThreadRunner(MRunner):
     """Parallel runner using threads"""
     Queue = staticmethod(queue.Queue)
+
     class DaemonThread(Thread):
         """daemon thread to make sure process is terminated if there is
         an uncatch exception and threads are not correctly joined.
         """
+
         def __init__(self, *args, **kwargs):
             Thread.__init__(self, *args, **kwargs)
             self.daemon = True
+
     Child = staticmethod(DaemonThread)
 
     @staticmethod

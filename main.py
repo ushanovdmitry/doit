@@ -16,14 +16,20 @@ def foo(targets: list):
 
         with open(target, 'a') as t:
             t.write("Hello world")
-            print(f"Written to {target} {t}")
+
+    raise Exception("")
+
+
+def bar():
+    print("Something!")
 
 
 if __name__ == '__main__':
     dag = DAG()
 
     t1 = Task(
-        'first_task', PythonAction(foo, ), targets=[Path('first_task_output.txt')]
+        'first_task', PythonAction(foo, ), targets=[Path('first_task_output.txt')],
+        uptodate=[]
     )
 
     t2 = Task(
@@ -37,7 +43,7 @@ if __name__ == '__main__':
     t3 = Task(
         'last-step',
         file_dep=t1.targets + t2.targets,
-        action=lambda targets: GLOBAL_OBJ.append(targets),
+        action=bar,
         targets=[]
     )
 
@@ -48,4 +54,4 @@ if __name__ == '__main__':
     # dag.cli_main()
     dag.run(targets=None)
 
-    assert GLOBAL_OBJ == ['first_task_output.txt', []]
+    # assert GLOBAL_OBJ == ['first_task_output.txt', []]

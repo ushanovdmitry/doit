@@ -3,6 +3,8 @@ import subprocess
 import inspect
 from pathlib import PurePath
 
+from loguru import logger
+
 
 class BaseAction:
     """Base class for all actions"""
@@ -67,6 +69,8 @@ class CmdAction(BaseAction):
             shell=self.shell,
             env=env,
             **subprocess_pkwargs)
+
+        logger.info(f"Executing {self.task.name}")
 
         # make sure process really terminated
         process.wait()
@@ -241,6 +245,7 @@ class PythonAction(BaseAction):
 
         kwargs = self._prepare_kwargs()
 
+        logger.info(f"Executing {self.task.name}")
         # execute action / callable
         self.py_callable(*self.args, **kwargs)
 

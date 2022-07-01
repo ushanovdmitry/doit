@@ -13,6 +13,7 @@ class RegexGroup(object):
     '''Helper to keep track of all delayed-tasks which regexp target
     matches the target specified from command line.
     '''
+
     def __init__(self, target, tasks):
         # target name specified in command line
         self.target = target
@@ -74,7 +75,6 @@ class TaskControl(object):
         self._check_dep_names()
         self.set_implicit_deps(self.targets, task_list)
 
-
     def _check_dep_names(self):
         """check if user input task_dep or setup_task that doesnt exist"""
         # check task-dependencies exist.
@@ -88,7 +88,6 @@ class TaskControl(object):
                 if setup_task not in self.tasks:
                     msg = f"Task '{task.name}': invalid setup task '{setup_task}'."
                     raise InvalidTask(msg)
-
 
     @staticmethod
     def set_implicit_deps(targets, task_list):
@@ -114,7 +113,6 @@ class TaskControl(object):
         for task in task_list:
             TaskControl.add_implicit_task_dep(targets, task, task.file_dep)
 
-
     @staticmethod
     def add_implicit_task_dep(targets, task, deps_list):
         """add implicit task_dep for `task` for newly added `file_dep`
@@ -127,7 +125,6 @@ class TaskControl(object):
             if (dep in targets and targets[dep] not in task.task_dep):
                 task.task_dep.append(targets[dep])
 
-
     def _get_wild_tasks(self, pattern):
         """get list of tasks that match pattern"""
         wild_list = []
@@ -135,7 +132,6 @@ class TaskControl(object):
             if fnmatch.fnmatch(t_name, pattern):
                 wild_list.append(t_name)
         return wild_list
-
 
     def _process_filter(self, task_selection):
         """process cmd line task options
@@ -145,6 +141,7 @@ class TaskControl(object):
         @return list of task names. Expanding glob and removed params
         """
         filter_list = []
+
         def add_filtered_task(seq, f_name):
             """add task to list `filter_list` and set task.options from params
             @return list - str: of elements not yet
@@ -180,7 +177,6 @@ class TaskControl(object):
             else:
                 seq = add_filtered_task(seq, f_name)
         return filter_list
-
 
     def _filter_tasks(self, task_selection):
         """Select tasks specified by filter.
@@ -244,7 +240,6 @@ class TaskControl(object):
                 raise InvalidCommand(not_found=filter_)
         return selected_task
 
-
     def process(self, task_selection):
         """
         @param task_selection: list of strings with task names/params
@@ -258,7 +253,6 @@ class TaskControl(object):
             # in the order they were defined.
             self.selected_tasks = self._def_order
 
-
     def task_dispatcher(self):
         """return a TaskDispatcher generator
         """
@@ -266,7 +260,6 @@ class TaskControl(object):
             "must call 'process' before this"
 
         return TaskDispatcher(self.tasks, self.targets, self.selected_tasks)
-
 
 
 class ExecNode(object):
@@ -282,6 +275,7 @@ class ExecNode(object):
            - up-to-date: task wont be executed (no need)
            - done: task finished its execution
     """
+
     def __init__(self, task, parent):
         self.task = task
         # list of dependencies not processed by _add_task yet
@@ -340,13 +334,14 @@ class ExecNode(object):
 
 def no_none(decorated):
     """decorator for a generator to discard/filter-out None values"""
+
     def _func(*args, **kwargs):
         """wrap generator"""
         for value in decorated(*args, **kwargs):
             if value is not None:
                 yield value
-    return _func
 
+    return _func
 
 
 class TaskDispatcher(object):
@@ -354,6 +349,7 @@ class TaskDispatcher(object):
 
     Note that a dispatched task might not be ready to be executed.
     """
+
     def __init__(self, tasks, targets, selected_tasks):
         self.tasks = tasks
         self.targets = targets
@@ -365,7 +361,6 @@ class TaskDispatcher(object):
         self.ready = deque()  # of ExecNode
 
         self.generator = self._dispatcher_generator(selected_tasks)
-
 
     def _gen_node(self, parent, task_name):
         """return ExecNode for task_name if not created yet"""
@@ -383,7 +378,6 @@ class TaskDispatcher(object):
             msg = "Cyclic/recursive dependencies for task %s: [%s]"
             cycle = " -> ".join(parent.ancestors + [task_name])
             raise InvalidDodoFile(msg % (task_name, cycle))
-
 
     def _node_add_wait_run(self, node, task_list, calc=False):
         """updates node.wait_run
@@ -406,7 +400,6 @@ class TaskDispatcher(object):
                 if calc:
                     self._process_calc_dep_results(dep_node, node)
 
-
         # update ExecNode setting parent/dependent relationship
         for name in wait_for:
             self.nodes[name].waiting_me.add(node)
@@ -414,7 +407,6 @@ class TaskDispatcher(object):
             node.wait_run_calc.update(wait_for)
         else:
             node.wait_run.update(wait_for)
-
 
     @no_none
     def _add_task(self, node):
@@ -525,7 +517,6 @@ class TaskDispatcher(object):
                 # re-send this task after setup_tasks are sent
                 yield this_task
 
-
     def _get_next_node(self, ready, tasks_to_run):
         """get ExecNode from (in order):
             .1 ready
@@ -539,7 +530,6 @@ class TaskDispatcher(object):
             node = self._gen_node(None, task_name)
             if node:
                 return node
-
 
     def _update_waiting(self, processed):
         """updates 'ready' and 'waiting' queues after processed
@@ -580,12 +570,10 @@ class TaskDispatcher(object):
                 is_ready = True
                 self._process_calc_dep_results(node, waiting_node)
 
-
             # this node can be further processed
             if is_ready and (waiting_node in self.waiting):
                 self.ready.append(waiting_node)
                 self.waiting.remove(waiting_node)
-
 
     def _process_calc_dep_results(self, node, waiting_node):
         # refresh this task dependencies with values got from calc_dep
@@ -602,8 +590,6 @@ class TaskDispatcher(object):
         waiting_node.task_dep.extend(new_task_dep)
         new_calc_dep = waiting_node.task.calc_dep - old_calc_dep
         waiting_node.calc_dep.update(new_calc_dep)
-
-
 
     def _dispatcher_generator(self, selected_tasks):
         """return generator dispatching tasks"""

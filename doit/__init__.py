@@ -20,17 +20,12 @@ from doit.cmd_run import Run
 from doit.control import TaskControl
 from doit.runner import Runner
 from doit.task import Stream
-from doit.reporter import ConsoleReporter, JsonReporter
 
 
 class DAG:
     def __init__(self):
         self.task_list = []
 
-        outstream = sys.stdout
-        failure_verbosity = 0
-
-        self.reporter = ConsoleReporter(outstream, {'failure_verbosity': failure_verbosity})
         self.dep_manager = Dependency(
             DbmDB, '.doit.db', checker_cls=MD5Checker, codec_cls=JSONCodec
         )
@@ -49,10 +44,10 @@ class DAG:
 
         stream = Stream(verbosity, force_verbosity)
 
-        continue_ = False
+        continue_ = True
         always = False
 
-        runner_ = Runner(self.dep_manager, self.reporter, continue_, always, stream)
+        runner_ = Runner(self.dep_manager, continue_, always, stream)
 
         control_ = TaskControl(
             self.task_list,
