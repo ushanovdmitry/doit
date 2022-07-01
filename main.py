@@ -37,5 +37,5 @@ if __name__ == '__main__':
     dag.append(t2)
 
     dag.cli_main()
-    # dag.run(targets=[])
+    # dag.run(targets=['*step', ])
 
