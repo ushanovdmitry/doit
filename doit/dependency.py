@@ -9,6 +9,8 @@ from collections import defaultdict
 from dbm import dumb
 import dbm as ddbm
 
+from .task import Task
+
 # uncomment imports below to run tests on all dbm backends...
 # import dumbdbm as ddbm
 # import dbm as ddbm
@@ -48,7 +50,7 @@ def get_file_md5(path):
 
 
 class JSONCodec():
-    """default implmentation for codec used to save individual task's data"""
+    """default implementation for codec used to save individual task's data"""
     def __init__(self):
         self.encoder = json.JSONEncoder()
         self.decoder = json.JSONDecoder()
@@ -656,13 +658,12 @@ class Dependency(object):
         if not get_log and result.status == 'run':
             return result
 
-        # no dependencies means it is never up to date.
+        # no dependencies' means it is never up-to-date.
         if not (task.file_dep or uptodate_result_list):
             if result.set_reason('has_no_dependencies', True):
                 return result
 
-
-        # if target file is not there, task is not up to date
+        # if target file is not there, task is not up-to-date
         for targ in task.targets:
             if not self.checker.exists(targ):
                 task.dep_changed = list(task.file_dep)

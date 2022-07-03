@@ -1,21 +1,98 @@
 """Task runner"""
-
+import dataclasses
 from multiprocessing import Process, Queue as MQueue
+from graphlib import TopologicalSorter
+from collections import defaultdict
+from pathlib import Path
 from threading import Thread
 import pickle
 import queue
+from typing import List, Tuple
 
 import cloudpickle
 import loguru
 
 from .exceptions import InvalidTask, BaseFail
 from .exceptions import TaskFailed, SetupError, DependencyError, UnmetDependency
-from .task import Stream, DelayedLoaded
+from .task import Stream, DelayedLoaded, Task
+
+from .dependency import Dependency
 
 # execution result.
 SUCCESS = 0
 FAILURE = 1
 ERROR = 2
+
+
+@dataclasses.dataclass(frozen=True, unsafe_hash=True)
+class _NodeFileDep:
+    path: Path
+
+
+@dataclasses.dataclass(frozen=True, unsafe_hash=True)
+class _NodeTask:
+    name: str
+
+
+def _depends_on(graph: dict, node, depends_on):
+    if isinstance(node, Task):
+        if isinstance(depends_on, Task):
+            graph[_NodeTask(node.name)].append(_NodeTask(depends_on.name))
+        else:
+            graph[_NodeTask(node.name)].append(_NodeFileDep(depends_on))
+    else:
+        assert isinstance(depends_on, Task)
+        graph[_NodeFileDep(node)].append(_NodeTask(depends_on.name))
+
+
+class Runner2:
+    def __init__(self, dep_manager: Dependency, continue_=False, always_execute=False):
+        self.dep_manager = dep_manager
+        self.continue_ = continue_
+        self.always_execute = always_execute
+
+    def run_all(self, tasks: List[Task]):
+        graph = defaultdict(list)
+
+        name2task = {
+            task.name: task
+            for task in tasks
+        }
+
+        for task in tasks:
+            for file_dep in task.file_dep:
+                _depends_on(graph, task, file_dep)
+            for file_tar in task.targets:
+                _depends_on(graph, file_tar, task)
+            for dep in task.task_dep:
+                _depends_on(graph, task, dep)
+
+        ts = TopologicalSorter(graph)
+        ts.prepare()
+
+        while ts.is_active():
+            nodes = ts.get_ready()
+
+            for node in nodes:
+                if isinstance(node, _NodeFileDep):
+                    ts.done(node)
+                elif isinstance(node, _NodeTask):
+                    task = name2task[node.name]  # type: Task
+
+                    status = self.dep_manager.get_status(task, name2task)
+
+                    if status.status == "run":
+                        try:
+                            task.execute()
+                            self.dep_manager.save_success(task)
+                        except:
+                            self.dep_manager.remove_success(task)
+                            self.dep_manager.backend.dump()
+                            raise
+                    else:
+                        loguru.logger.info(f"Skipping run of {task}")
+
+                    ts.done(node)
 
 
 class Runner:

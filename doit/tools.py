@@ -10,10 +10,11 @@ import subprocess
 
 from . import exceptions
 from .action import CmdAction, PythonAction
-from .task import result_dep  # imported for backward compatibility
-
 
 # action
+from .dependency import UptodateCalculator
+
+
 def create_folder(dir_path):
     """create a folder in the given path if it doesnt exist yet."""
     os.makedirs(dir_path, exist_ok=True)
@@ -300,3 +301,62 @@ def load_ipython_extension(ip=None):  # pragma: no cover
 
 # also expose another way of registering ipython extension
 register_doit_as_IPython_magic = load_ipython_extension
+
+
+class result_dep(UptodateCalculator):
+    """check if result of the given task was modified
+    """
+
+    def __init__(self, dep_task_name, setup_dep=False):
+        '''
+        :param setup_dep: controls if dependent task is task_dep or setup
+        '''
+        self.dep_name = dep_task_name
+        self.setup_dep = setup_dep
+        self.result_name = '_result:%s' % self.dep_name
+
+    def configure_task(self, task):
+        """to be called by doit when create the task"""
+        # result_dep creates an implicit task_dep
+        if self.setup_dep:
+            task.setup_tasks.append(self.dep_name)
+        else:
+            task.task_dep.append(self.dep_name)
+
+    def _result_single(self):
+        """get result from a single task"""
+        return self.get_val(self.dep_name, 'result:')
+
+    def _result_group(self, dep_task):
+        """get result from a group task
+        the result is the combination of results of all sub-tasks
+        """
+        prefix = dep_task.name + ":"
+        sub_tasks = {}
+        for sub in dep_task.task_dep:
+            if sub.startswith(prefix):
+                sub_tasks[sub] = self.get_val(sub, 'result:')
+        return sub_tasks
+
+    def _get_dep_result(self, dep_task):
+        if not dep_task.has_subtask:
+            dep_result = self._result_single()
+        else:
+            dep_result = self._result_group(dep_task)
+        return dep_result
+
+    def __call__(self, task, values):
+        """return True if result is the same as last run"""
+        dep_task = self.tasks_dict[self.dep_name]
+        dep_result = self._get_dep_result(dep_task)
+
+        def result_saver():
+            # get latest value after execution of dependent task
+            return {self.result_name: self._get_dep_result(dep_task)}
+
+        task.value_savers.append(result_saver)
+
+        last_success = values.get(self.result_name)
+        if last_success is None:
+            return False
+        return last_success == dep_result

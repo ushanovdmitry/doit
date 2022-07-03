@@ -17,7 +17,7 @@ def foo(targets: list):
         with open(target, 'a') as t:
             t.write("Hello world")
 
-    raise Exception("")
+    # raise Exception("")
 
 
 def bar():
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     t1 = Task(
         'first_task', PythonAction(foo, ), targets=[Path('first_task_output.txt')],
-        uptodate=[]
+        uptodate=[run_once]
     )
 
     t2 = Task(
