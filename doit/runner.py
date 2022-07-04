@@ -48,9 +48,9 @@ class Runner2:
         graph = defaultdict(list)
 
         for task in dag.name2task.values():
-            for dep in task.all_dependencies():
+            for dep in task.dependencies():
                 _depends_on(graph, task, dep)
-            for tar in task.all_targets():
+            for tar in task.targets():
                 _depends_on(graph, tar, task)
 
         ts = TopologicalSorter(graph)

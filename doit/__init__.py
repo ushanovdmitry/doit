@@ -101,8 +101,8 @@ class DAG:
         # runner_ = Runner(self.dep_manager, continue_, always, stream)
         # runner_.run_all(control_.task_dispatcher())
 
-        runner_ = Runner2(self.dep_manager, continue_, always)
-        runner_.run_all(list(self.name2task.values()))
+        runner_ = Runner2(self.dep_manager)
+        runner_.run_all(self)
 
 
 __all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', 'DAG', 'PythonAction']

@@ -1,41 +1,47 @@
 import os
 import subprocess
 import inspect
+from abc import ABC
+from copy import copy
+from itertools import chain
 from pathlib import PurePath
-from typing import List
+from typing import List, Any
 
 from loguru import logger
 
 
-class AbstractGraphNode:
+class AbstractGraphNode(ABC):
     pass
 
 
-class CanRepresentGraphNode:
+class CanRepresentGraphNode(ABC):
     def as_graph_node(self) -> AbstractGraphNode:
         raise NotImplementedError()
 
 
-class AbstractDependency(CanRepresentGraphNode):
-    def is_up_to_date(self, this_dag, this_task, backend):
+class AbstractDependency(CanRepresentGraphNode, ABC):
+    def is_up_to_date(self, backend):
         raise NotImplementedError()
 
-    def as_graph_node(self) -> AbstractGraphNode:
-        pass
-
-
-class AbstractTarget(CanRepresentGraphNode):
-    def exists(self, this_dag, this_task, backend):
+    def value(self, backend) -> Any:
         raise NotImplementedError()
 
-    def as_graph_node(self) -> AbstractGraphNode:
-        pass
+
+class AbstractTarget(CanRepresentGraphNode, ABC):
+    def exists(self, backend):
+        raise NotImplementedError()
+
+    def value(self, backend) -> Any:
+        raise NotImplementedError()
+
+    def store(self, backend):
+        raise NotImplementedError()
 
 
-class AbstractAction:
+class AbstractAction(ABC):
     """Base class for all actions"""
 
-    def execute(self, backend, task_name):
+    def execute(self, backend):
         raise NotImplementedError()
 
     def get_all_dependencies(self) -> List[AbstractDependency]:
@@ -180,125 +186,50 @@ class PythonAction(AbstractAction):
     @ivar task(Task): reference to task that contains this action
     """
 
-    def __init__(self, py_callable, args=None, kwargs=None, task=None):
+    def __init__(self, py_callable, args=None, kwargs=None):
         self.py_callable = py_callable
-        self.task = task
-        self.result = None
-        self.values = {}
 
         self.args = args or ()
         self.kwargs = kwargs or {}
 
         # check valid parameters
         if not hasattr(self.py_callable, '__call__'):
-            msg = "%r PythonAction must be a 'callable' got %r."
-            raise Exception(msg % (self.task, self.py_callable))
+            msg = "PythonAction must be a 'callable' got %r."
+            raise Exception(msg % self.py_callable)
         if not isinstance(self.args, (tuple, list)):
-            msg = "%r args must be a 'tuple' or a 'list'. got '%s'."
-            raise Exception(msg % (self.task, self.args))
+            msg = "%s args must be a 'tuple' or a 'list'. got '%s'."
+            raise Exception(msg % (self.py_callable, self.args))
         if not isinstance(self.kwargs, dict):
-            msg = "%r kwargs must be a 'dict'. got '%s'"
-            raise Exception(msg % (self.task, self.kwargs))
+            msg = "%s kwargs must be a 'dict'. got '%s'"
+            raise Exception(msg % (self.py_callable, self.kwargs))
 
-    def _prepare_kwargs(self,):
+    def execute(self, backend):
         """
-        Prepare keyword arguments (targets, dependencies, changed,
-        cmd line options)
-        Inspect python callable and add missing arguments:
-        - that the callable expects
-        - have not been passed (as a regular arg or as keyword arg)
-        - are available internally through the task object
+        Execute command action
         """
-        # Return just what was passed in task generator
-        # dictionary if the task isn't available
-        if not self.task:
-            return self.kwargs
 
-        func_sig = inspect.signature(self.py_callable)
-        sig_params = func_sig.parameters.values()
-        func_has_kwargs = any(p.kind == p.VAR_KEYWORD for p in sig_params)
-
-        # use task meta information as extra_args
-        meta_args = {
-            'task': lambda: self.task,
-            'targets': lambda: list(self.task.targets),
-            'dependencies': lambda: list(self.task.file_dep),
-            'changed': lambda: list(self.task.dep_changed),
-        }
-
-        # start with dict passed together on action definition
+        args = list(self.args)
         kwargs = self.kwargs.copy()
-        bound_args = func_sig.bind_partial(*self.args)
 
-        # add meta_args
-        for key in meta_args.keys():
-            # check key is a positional parameter
-            if key in func_sig.parameters:
-                sig_param = func_sig.parameters[key]
+        for i, a in enumerate(args):
+            if isinstance(a, AbstractDependency):
+                args[i] = a.value(backend)
+            if isinstance(a, AbstractTarget):
+                args[i] = a.value(backend)
 
-                # it is forbidden to use default values for this arguments
-                # because the user might be unaware of this magic.
-                if sig_param.default != sig_param.empty:
-                    msg = (f"Task {self.task.name}, action {self.py_callable.__name__}():"
-                           f"The argument '{key}' is not allowed to have "
-                           "a default value (reserved by doit)")
-                    raise InvalidTask(msg)
-
-                # if value not taken from position parameter
-                if key not in bound_args.arguments:
-                    kwargs[key] = meta_args[key]()
-
-        # add tasks parameter options
-        opt_args = dict(self.task.options)
-        if self.task.pos_arg is not None:
-            opt_args[self.task.pos_arg] = self.task.pos_arg_val
-
-        for key in opt_args.keys():
-            # check key is a positional parameter
-            if key in func_sig.parameters:
-                # if value not taken from position parameter
-                if key not in bound_args.arguments:
-                    kwargs[key] = opt_args[key]
-
-            # if function has **kwargs include extra_arg on it
-            elif func_has_kwargs and key not in kwargs:
-                kwargs[key] = opt_args[key]
-        return kwargs
-
-    def execute(self, ):
-        """Execute command action
-        """
-
-        kwargs = self._prepare_kwargs()
-
-        logger.info(f"Executing {self.task.name}")
-        # execute action / callable
-        self.py_callable(*self.args, **kwargs)
-
-    def __str__(self):
-        # get object description excluding runtime memory address
-        return "Python: %s" % str(self.py_callable)[1:].split(' at ')[0]
+        self.py_callable(*args, **kwargs)
 
     def __repr__(self):
         return "<PythonAction: '%s'>" % (repr(self.py_callable))
 
+    def get_all_dependencies(self) -> List[AbstractDependency]:
+        return [
+            _ for _ in chain(self.args, self.kwargs.values())
+            if isinstance(_, AbstractDependency)
+        ]
 
-def create_action(action, task_ref):
-    """
-    Create action using proper constructor based on the parameter type
-    """
-    if isinstance(action, BaseAction):
-        action.task = task_ref
-        return action
-
-    if isinstance(action, str):
-        return CmdAction(action, task_ref, shell=True)
-
-    if isinstance(action, list):
-        return CmdAction(action, task_ref, shell=False)
-
-    if hasattr(action, '__call__'):
-        return PythonAction(action, task=task_ref)
-
-    msg = f"Task '{task_ref.name}': invalid '{action}' type. got: {type(action)}"
-    raise Exception(msg)
+    def get_all_targets(self) -> List[AbstractTarget]:
+        return [
+            _ for _ in chain(self.args, self.kwargs.values())
+            if isinstance(_, AbstractTarget)
+        ]
