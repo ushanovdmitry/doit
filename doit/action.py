@@ -2,14 +2,46 @@ import os
 import subprocess
 import inspect
 from pathlib import PurePath
+from typing import List
 
 from loguru import logger
 
 
-class BaseAction:
+class AbstractGraphNode:
+    pass
+
+
+class CanRepresentGraphNode:
+    def as_graph_node(self) -> AbstractGraphNode:
+        raise NotImplementedError()
+
+
+class AbstractDependency(CanRepresentGraphNode):
+    def is_up_to_date(self, this_dag, this_task, backend):
+        raise NotImplementedError()
+
+    def as_graph_node(self) -> AbstractGraphNode:
+        pass
+
+
+class AbstractTarget(CanRepresentGraphNode):
+    def exists(self, this_dag, this_task, backend):
+        raise NotImplementedError()
+
+    def as_graph_node(self) -> AbstractGraphNode:
+        pass
+
+
+class AbstractAction:
     """Base class for all actions"""
 
-    def execute(self, ):
+    def execute(self, backend, task_name):
+        raise NotImplementedError()
+
+    def get_all_dependencies(self) -> List[AbstractDependency]:
+        raise NotImplementedError()
+
+    def get_all_targets(self) -> List[AbstractTarget]:
         raise NotImplementedError()
 
 
@@ -139,7 +171,7 @@ class CmdAction(BaseAction):
         return "<CmdAction: '%s'>" % str(self.action)
 
 
-class PythonAction(BaseAction):
+class PythonAction(AbstractAction):
     """Python action. Execute a python callable.
 
     @ivar py_callable: (callable) Python callable
@@ -160,19 +192,13 @@ class PythonAction(BaseAction):
         # check valid parameters
         if not hasattr(self.py_callable, '__call__'):
             msg = "%r PythonAction must be a 'callable' got %r."
-            raise InvalidTask(msg % (self.task, self.py_callable))
-        if inspect.isclass(self.py_callable):
-            msg = "%r PythonAction can not be a class got %r."
-            raise InvalidTask(msg % (self.task, self.py_callable))
-        if inspect.isbuiltin(self.py_callable):
-            msg = "%r PythonAction can not be a built-in got %r."
-            raise InvalidTask(msg % (self.task, self.py_callable))
-        if type(self.args) is not tuple and type(self.args) is not list:
+            raise Exception(msg % (self.task, self.py_callable))
+        if not isinstance(self.args, (tuple, list)):
             msg = "%r args must be a 'tuple' or a 'list'. got '%s'."
-            raise InvalidTask(msg % (self.task, self.args))
-        if type(self.kwargs) is not dict:
+            raise Exception(msg % (self.task, self.args))
+        if not isinstance(self.kwargs, dict):
             msg = "%r kwargs must be a 'dict'. got '%s'"
-            raise InvalidTask(msg % (self.task, self.kwargs))
+            raise Exception(msg % (self.task, self.kwargs))
 
     def _prepare_kwargs(self,):
         """

@@ -1,5 +1,5 @@
 from doit import Task, DAG, PythonAction
-from doit.task import clean_targets
+from doit.task import clean_targets, FileDep
 from doit.tools import run_once, result_dep
 
 from pathlib import Path
@@ -25,33 +25,12 @@ def bar():
 
 
 if __name__ == '__main__':
-    dag = DAG()
+    with DAG("main", ) as dag:
+        t1 = dag.py_task(
+            "task 1",
+            print, args=[FileDep("main.py")]
+        )
 
-    t1 = Task(
-        'first_task', PythonAction(foo, ), targets=[Path('first_task_output.txt')],
-        uptodate=[run_once]
-    )
-
-    t2 = Task(
-        'second_task',
-        CmdAction('type %(dependencies)s > %(targets)s'),
-        file_dep=['main.py'],
-        targets=[Path('main.models.deps.txt')],
-        clean=[clean_targets, ]
-    )
-
-    t3 = Task(
-        'last-step',
-        file_dep=t1.targets + t2.targets,
-        action=bar,
-        targets=[]
-    )
-
-    dag.append(t3)
-    dag.append(t1)
-    dag.append(t2)
-
-    # dag.cli_main()
     dag.run(targets=None)
 
     # assert GLOBAL_OBJ == ['first_task_output.txt', []]

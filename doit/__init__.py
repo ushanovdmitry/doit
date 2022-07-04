@@ -1,7 +1,7 @@
 import dataclasses
 import sys
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, List
 
 from doit.dependency import Dependency, DbmDB, MD5Checker, JSONCodec
 from doit.version import VERSION
@@ -16,55 +16,16 @@ from doit.api import run
 from doit.tools import load_ipython_extension
 from doit.globals import Globals
 
-from doit.action import PythonAction
+from doit.action import PythonAction, AbstractDependency, AbstractTarget
 from doit.task import Task
 
 from doit.cmd_run import Run
 from doit.control import TaskControl
 from doit.runner import Runner, Runner2
-from doit.task import Stream
-
-
-@dataclasses.dataclass
-class OutputOf:
-    # result value for PyAction and stdout output for CmdAction
-    task: Task
-
-
-class Dep:
-    def is_up_to_date(self, database=None):
-        raise NotImplementedError()
-
-
-@dataclasses.dataclass
-class FileDep(Dep):
-    # task depends on file
-    path: Path
-
-    def is_up_to_date(self, database=None):
-        pass
-
-
-@dataclasses.dataclass
-class TaskDep(Dep):
-    # task depends on other task (implicitly)
-    task: Task
-
-    def is_up_to_date(self, database=None):
-        pass
-
-
-@dataclasses.dataclass
-class OutputOfDep(Dep):
-    # task depends on output of other task
-    obj: Any
-
-    def is_up_to_date(self, database=None):
-        pass
 
 
 class DAG:
-    def __init__(self, dag_name: str, always_execute: False, continue_on_failure: False):
+    def __init__(self, dag_name: str, always_execute=False, continue_on_failure=False):
         self.dag_name = dag_name
 
         self.always_execute = always_execute
@@ -77,7 +38,7 @@ class DAG:
         self.name2task = {}
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -85,13 +46,18 @@ class DAG:
         2. Last dependencies (by name, z.B.)
         3. Check for cycles
         """
+        pass
 
     def py_task(self, name, py_callable, args=None, kwargs=None,
-                file_targets=(), depends_on=(),
+                targets: List[AbstractTarget] = (), depends_on: List[AbstractDependency] = (),
                 always_execute=None, continue_on_failure=None,
                 depends_on_src=False, execute_ones=None):
+
         t = Task(name, PythonAction(py_callable, args, kwargs),
-                 file_dep=depends_on, targets=file_targets, task_dep=())
+                 dependencies=depends_on, targets=targets,
+                 always_execute=always_execute,
+                 continue_on_failure=continue_on_failure,
+                 execute_ones=execute_ones)
 
         assert t.name not in self.name2task
         self.name2task[t.name] = t
@@ -114,7 +80,7 @@ class DAG:
         always = False
 
         control_ = TaskControl(
-            self.task_list,
+            list(self.name2task.values()),
             auto_delayed_regex=auto_delayed_regex
         )
         control_.process(targets)
@@ -136,7 +102,7 @@ class DAG:
         # runner_.run_all(control_.task_dispatcher())
 
         runner_ = Runner2(self.dep_manager, continue_, always)
-        runner_.run_all(self.task_list)
+        runner_.run_all(list(self.name2task.values()))
 
 
 __all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', 'DAG', 'PythonAction']

@@ -12,9 +12,11 @@ from typing import List, Tuple
 import cloudpickle
 import loguru
 
+from . import DAG
+from .action import CanRepresentGraphNode, AbstractGraphNode
 from .exceptions import InvalidTask, BaseFail
 from .exceptions import TaskFailed, SetupError, DependencyError, UnmetDependency
-from .task import Stream, DelayedLoaded, Task
+from .task import Task, TaskGraphNode
 
 from .dependency import Dependency
 
@@ -34,38 +36,22 @@ class _NodeTask:
     name: str
 
 
-def _depends_on(graph: dict, node, depends_on):
-    if isinstance(node, Task):
-        if isinstance(depends_on, Task):
-            graph[_NodeTask(node.name)].append(_NodeTask(depends_on.name))
-        else:
-            graph[_NodeTask(node.name)].append(_NodeFileDep(depends_on))
-    else:
-        assert isinstance(depends_on, Task)
-        graph[_NodeFileDep(node)].append(_NodeTask(depends_on.name))
+def _depends_on(graph: dict, node: CanRepresentGraphNode, depends_on: CanRepresentGraphNode):
+    graph[node.as_graph_node()].append(depends_on.as_graph_node())
 
 
 class Runner2:
-    def __init__(self, dep_manager: Dependency, continue_=False, always_execute=False):
+    def __init__(self, dep_manager: Dependency):
         self.dep_manager = dep_manager
-        self.continue_ = continue_
-        self.always_execute = always_execute
 
-    def run_all(self, tasks: List[Task]):
+    def run_all(self, dag: DAG):
         graph = defaultdict(list)
 
-        name2task = {
-            task.name: task
-            for task in tasks
-        }
-
-        for task in tasks:
-            for file_dep in task.file_dep:
-                _depends_on(graph, task, file_dep)
-            for file_tar in task.targets:
-                _depends_on(graph, file_tar, task)
-            for dep in task.task_dep:
+        for task in dag.name2task.values():
+            for dep in task.all_dependencies():
                 _depends_on(graph, task, dep)
+            for tar in task.all_targets():
+                _depends_on(graph, tar, task)
 
         ts = TopologicalSorter(graph)
         ts.prepare()
@@ -73,13 +59,13 @@ class Runner2:
         while ts.is_active():
             nodes = ts.get_ready()
 
-            for node in nodes:
-                if isinstance(node, _NodeFileDep):
+            for node in nodes:  # type: AbstractGraphNode
+                if not isinstance(node, TaskGraphNode):
                     ts.done(node)
-                elif isinstance(node, _NodeTask):
-                    task = name2task[node.name]  # type: Task
+                else:
+                    task = dag.name2task[node.name]  # type: Task
 
-                    status = self.dep_manager.get_status(task, name2task)
+                    status = self.dep_manager.get_status(task, dag)
 
                     if status.status == "run":
                         try:
