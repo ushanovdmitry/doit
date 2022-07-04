@@ -8,7 +8,7 @@ import importlib
 from collections import OrderedDict
 
 from .exceptions import InvalidTask, InvalidCommand, InvalidDodoFile
-from .task import DelayedLoader, Task, dict_to_task
+from .task import Task
 from .cmdparse import TaskParse, CmdOption
 
 

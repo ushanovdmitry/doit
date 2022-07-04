@@ -51,7 +51,7 @@ class AbstractAction(ABC):
         raise NotImplementedError()
 
 
-class CmdAction(BaseAction):
+class CmdAction(AbstractAction):
     """
     Command line action. Spawns a new process.
 
@@ -183,7 +183,6 @@ class PythonAction(AbstractAction):
     @ivar py_callable: (callable) Python callable
     @ivar args: (sequence)  Extra arguments to be passed to py_callable
     @ivar kwargs: (dict) Extra keyword arguments to be passed to py_callable
-    @ivar task(Task): reference to task that contains this action
     """
 
     def __init__(self, py_callable, args=None, kwargs=None):
@@ -212,10 +211,12 @@ class PythonAction(AbstractAction):
         kwargs = self.kwargs.copy()
 
         for i, a in enumerate(args):
-            if isinstance(a, AbstractDependency):
+            if isinstance(a, (AbstractTarget, AbstractDependency)):
                 args[i] = a.value(backend)
-            if isinstance(a, AbstractTarget):
-                args[i] = a.value(backend)
+
+        for k, v in kwargs.items():
+            if isinstance(v, (AbstractTarget, AbstractDependency)):
+                kwargs[k] = v.value(backend)
 
         self.py_callable(*args, **kwargs)
 

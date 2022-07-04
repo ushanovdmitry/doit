@@ -1,10 +1,10 @@
 """Tasks are the main abstractions managed by doit"""
 import dataclasses
+from itertools import chain
 from pathlib import Path
-from typing import List, Any
+from typing import List, Any, Sequence
 
-from . import AbstractDependency, AbstractTarget
-from .action import AbstractAction, AbstractGraphNode, CanRepresentGraphNode
+from .action import AbstractAction, AbstractGraphNode, CanRepresentGraphNode, AbstractDependency, AbstractTarget
 
 
 @dataclasses.dataclass(frozen=True)
@@ -26,10 +26,10 @@ class Task(CanRepresentGraphNode):
         return f"<Task: {self.name}>"
 
     def dependencies(self):
-        return self.implicit_dependencies + self.action.get_all_dependencies()
+        return chain(self.implicit_dependencies, self.action.get_all_dependencies())
 
     def targets(self):
-        return self.implicit_targets + self.action.get_all_targets()
+        return chain(self.implicit_targets, self.action.get_all_targets())
 
     def as_graph_node(self) -> AbstractGraphNode:
         return TaskGraphNode(self.name)

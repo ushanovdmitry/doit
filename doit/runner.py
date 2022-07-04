@@ -65,18 +65,7 @@ class Runner2:
                 else:
                     task = dag.name2task[node.name]  # type: Task
 
-                    status = self.dep_manager.get_status(task, dag)
-
-                    if status.status == "run":
-                        try:
-                            task.execute()
-                            self.dep_manager.save_success(task)
-                        except:
-                            self.dep_manager.remove_success(task)
-                            self.dep_manager.backend.dump()
-                            raise
-                    else:
-                        loguru.logger.info(f"Skipping run of {task}")
+                    task.execute(backend=None)
 
                     ts.done(node)
 

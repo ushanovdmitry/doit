@@ -1,6 +1,4 @@
-import dataclasses
 import sys
-from pathlib import Path
 from typing import Any, Union, List
 
 from doit.dependency import Dependency, DbmDB, MD5Checker, JSONCodec
@@ -8,20 +6,8 @@ from doit.version import VERSION
 
 __version__ = VERSION
 
-
-from doit import loader
-from doit.loader import create_after, task_params
-from doit.doit_cmd import get_var
-from doit.api import run
-from doit.tools import load_ipython_extension
-from doit.globals import Globals
-
 from doit.action import PythonAction, AbstractDependency, AbstractTarget
 from doit.task import Task
-
-from doit.cmd_run import Run
-from doit.control import TaskControl
-from doit.runner import Runner, Runner2
 
 
 class DAG:
@@ -54,7 +40,7 @@ class DAG:
                 depends_on_src=False, execute_ones=None):
 
         t = Task(name, PythonAction(py_callable, args, kwargs),
-                 dependencies=depends_on, targets=targets,
+                 implicit_dependencies=depends_on, implicit_targets=targets,
                  always_execute=always_execute,
                  continue_on_failure=continue_on_failure,
                  execute_ones=execute_ones)
@@ -74,45 +60,9 @@ class DAG:
         DoitMain(self.task_list).run(sys.argv[1:])
 
     def run(self, targets=None):
-        auto_delayed_regex = False
-
-        continue_ = True
-        always = False
-
-        control_ = TaskControl(
-            list(self.name2task.values()),
-            auto_delayed_regex=auto_delayed_regex
-        )
-        control_.process(targets)
-
-        single = False
-
-        if single:
-            control_.process(targets)
-            for task_name in control_.selected_tasks:
-                task = control_.tasks[task_name]
-                if task.has_subtask:
-                    for task_name in task.task_dep:
-                        sub_task = control_.tasks[task_name]
-                        sub_task.task_dep = []
-                else:
-                    task.task_dep = []
-
-        # runner_ = Runner(self.dep_manager, continue_, always, stream)
-        # runner_.run_all(control_.task_dispatcher())
+        from doit.runner import Runner2
 
         runner_ = Runner2(self.dep_manager)
         runner_.run_all(self)
-
-
-__all__ = ['get_var', 'run', 'create_after', 'task_params', 'Globals', 'Task', 'DAG', 'PythonAction']
-
-
-def get_initial_workdir():
-    """working-directory from where the doit command was invoked on shell"""
-    return loader.initial_workdir
-
-
-assert load_ipython_extension  # silence pyflakes
 
 

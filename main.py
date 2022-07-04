@@ -1,23 +1,13 @@
-from doit import Task, DAG, PythonAction
-from doit.task import clean_targets, FileDep
-from doit.tools import run_once, result_dep
+from doit import DAG
+from doit.task import FileDep, FileTar
 
 from pathlib import Path
 
-from doit.action import CmdAction
 
-
-GLOBAL_OBJ = []
-
-
-def foo(targets: list):
-    for target in targets:
-        GLOBAL_OBJ.append(target)
-
-        with open(target, 'a') as t:
-            t.write("Hello world")
-
-    # raise Exception("")
+def foo(src: Path, target: Path):
+    with open(target, 'a') as t:
+        t.write("Hello world from %s" % src)
+    print("Done!")
 
 
 def bar():
@@ -28,9 +18,10 @@ if __name__ == '__main__':
     with DAG("main", ) as dag:
         t1 = dag.py_task(
             "task 1",
-            print, args=[FileDep("main.py")]
+            foo, kwargs={
+                "src": FileDep(Path("main.py")),
+                "target": FileTar(Path("task 1 res.txt"))}
         )
 
     dag.run(targets=None)
 
-    # assert GLOBAL_OBJ == ['first_task_output.txt', []]
