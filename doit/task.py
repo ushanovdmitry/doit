@@ -53,7 +53,7 @@ class Task:
 
         try:
             prev_run = backend.get_task_fingerprint(self.name)
-            ix = int(prev_run.split(" ")[0])
+            ix = int(prev_run.split(" ")[0]) + 1
         except KeyError:
             ix = 0
 
