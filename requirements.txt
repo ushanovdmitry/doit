@@ -1,4 +1,3 @@
 cloudpickle
 pytest
 loguru
-graphviz

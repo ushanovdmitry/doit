@@ -39,7 +39,7 @@ class ArtifactLabel(ABC):
 
 class FileArtifact(ArtifactLabel):
     def __init__(self, path, is_target: bool):
-        self._path = pathlib.Path(path)  # .absolute()
+        self._path = pathlib.Path(path).resolve()
         self._is_target = is_target
 
     @property

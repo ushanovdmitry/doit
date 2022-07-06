@@ -1,8 +1,8 @@
+from itertools import chain
 from typing import List, Any
 
 from .artifact import FileArtifact, ArtifactLabel
 from .task import Task
-import graphviz
 
 
 def props2str(d: dict) -> str:
@@ -13,12 +13,12 @@ def props2str(d: dict) -> str:
 
 
 def prepare_node(n: str):
-    return n.replace('"', "")
+    return n.replace('"', "").replace("\\", "\\\\")
 
 
 class Digraph:
     def __init__(self):
-        self.worker = graphviz.Digraph()
+        self.lines = []
 
         self.visited_nodes = set()
 
@@ -29,20 +29,17 @@ class Digraph:
             return
 
         self.visited_nodes.add(node)
-        self.worker.node(name=node, **kwargs)
+
+        self.lines.append(
+            f'''\t"{node}" {props2str(kwargs)}'''
+        )
 
     def raw_edge(self, from_: str, to_: str, **kwargs) -> None:
         from_ = prepare_node(from_)
         to_ = prepare_node(to_)
 
-        # self.lines.append(
-        #     f'''    "{from_}" -> "{to_}" {props2str(kwargs)}'''
-        # )
-
-        self.worker.edge(
-            tail_name=from_,
-            head_name=to_,
-            **kwargs
+        self.lines.append(
+            f'''\t"{from_}" -> "{to_}" {props2str(kwargs)}'''
         )
 
     def node(self, node) -> str:
@@ -72,11 +69,10 @@ class Digraph:
         self.raw_edge(from_label, to_label, arrowhead="vee")
 
     def source(self) -> str:
-        # return "\n".join(
-        #     chain(
-        #         ["digraph {"],
-        #         self.lines,
-        #         ["}"]
-        #     )
-        # )
-        return self.worker.source
+        return "\n".join(
+            chain(
+                ["digraph {"],
+                self.lines,
+                ["}"]
+            )
+        )

@@ -23,9 +23,9 @@ class GVTest(unittest.TestCase):
             g.source(),
             '\n'.join(["digraph {",
                        '\t"hello world" [shape=box]',
-                       '\tx',
-                       '\t"hello world" -> x',
-                       "}\n"])
+                       '\t"x" ',
+                       '\t"hello world" -> "x" ',
+                       "}"])
         )
 
 
