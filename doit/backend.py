@@ -10,6 +10,12 @@ class Backend(ABC):
     def get_task_run_with(self, task_name: str, artifact_label: str) -> str:
         raise NotImplementedError()
 
+    def get_task_fingerprint(self, task_name: str) -> str:
+        raise NotImplementedError()
+
+    def set_task_fingerprint(self, task_name: str, fingerprint: str) -> None:
+        raise NotImplementedError()
+
     def flush(self):
         raise NotImplementedError()
 
@@ -50,6 +56,14 @@ class DictBackend(Backend):
             artifact_label,
             create=False
         )
+
+    def get_task_fingerprint(self, task_name: str) -> None:
+        c = self.get_key(self.dag_name, "fingerprints", task_name)
+        return c
+
+    def set_task_fingerprint(self, task_name: str, fingerprint: str) -> None:
+        c = self.get_key(self.dag_name, "fingerprints", create=True)
+        c[task_name] = fingerprint
 
     def flush(self):
         if self.filename is not None:

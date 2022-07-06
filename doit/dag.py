@@ -20,6 +20,7 @@ class DAG:
 
     def py_task(self, name, py_callable, args=None, kwargs=None,
                 targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
+                depends_on_tasks: List[Task] = (),
                 always_execute=None, execute_ones=None):
 
         assert name not in self.name2task
@@ -27,8 +28,9 @@ class DAG:
         t = Task(name, PythonAction(py_callable, args, kwargs),
                  implicit_dependencies=depends_on,
                  implicit_targets=targets,
+                 implicit_task_dependencies=depends_on_tasks,
                  always_execute=always_execute,
-                 execute_ones=execute_ones)
+                 execute_ones=execute_ones, ignore=False)
 
         self.name2task[t.name] = t
 
@@ -49,6 +51,8 @@ class DAG:
                 graph[task.name].append(dep.label())
             for tar in task.targets():
                 graph[tar.label()].append(task.name)
+            for other in task.implicit_task_dependencies:  # type: Task
+                graph[task.name].append(other.name)
 
         return graph
 
