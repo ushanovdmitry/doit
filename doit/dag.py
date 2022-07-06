@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Any, Union, List, Dict
 
 from graphlib import TopologicalSorter
@@ -58,7 +59,22 @@ class DAG:
 
         return graph
 
+    def check_labels(self):
+        # check that no artifact has the same label as any of the tasks
+        a_names = set()
+
+        for task in self.name2task.values():
+            for a in chain(task.dependencies(), task.targets()):
+                a_names.add(a.label())
+
+        intersection = a_names.intersection(self.name2task.keys())
+
+        if intersection:
+            raise Exception(f"Artifact shares name with task: {intersection!r}")
+
     def run(self, backend: Backend, targets=None):
+        self.check_labels()
+
         graph = self._create_dict_graph()
 
         ts = TopologicalSorter(graph)

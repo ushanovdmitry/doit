@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from .dag import DAG
 from .backend import DictBackend
@@ -66,6 +67,16 @@ class IntegrationTest(unittest.TestCase):
         t1.ignore = True
         dag.run(back)
         self.assertEqual(['1', '2', '1', '2'], glval, msg="ignore t1 => second task shouldn't get executed too...")
+
+    def test_check_labels(self):
+        fdep = FileDep(".")
+
+        dag = DAG("main")
+        dag.py_task("Task 1", print)
+        dag.py_task(fdep.label(), print, depends_on=[FileDep(".")])
+
+        with self.assertRaises(Exception) as context:
+            dag.check_labels()
 
 
 if __name__ == '__main__':
