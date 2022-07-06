@@ -29,6 +29,12 @@ if __name__ == '__main__':
         depends_on=[FileDep("task 1 res.txt")]
     )
 
+    dag.py_task(
+        "Task 3",
+        bar,
+        depends_on=[FileDep("task 1 res.txt")]
+    )
+
     print(dag.to_graphviz())
 
     back = DictBackend(dag.dag_name)
