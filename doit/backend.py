@@ -1,3 +1,4 @@
+import json
 from abc import ABC
 
 
@@ -13,9 +14,17 @@ class Backend(ABC):
 
 
 class DictBackend(Backend):
-    def __init__(self, dag_name: str):
+    def __init__(self, dag_name: str, filename: str):
         self.dag_name = dag_name
+        self.filename = filename
         self.d = dict()
+
+        if filename is not None:
+            try:
+                with open(filename, encoding='utf-8', mode='r') as fp:
+                    self.d = json.load(fp)
+            except FileNotFoundError:
+                pass
 
     def get_key(self, *args, create=False):
         c = self.d
@@ -42,5 +51,7 @@ class DictBackend(Backend):
         )
 
     def flush(self):
-        pass
+        if self.filename is not None:
+            with open(self.filename, encoding='utf-8', mode='w') as fp:
+                json.dump(self.d, fp, indent=' ', ensure_ascii=False)
 

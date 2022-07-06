@@ -67,6 +67,8 @@ class DAG:
                     task.execute(backend)
                 ts.done(node)
 
+        backend.flush()
+
     def to_graphviz(self) -> str:
         from .graphviz import Digraph
 

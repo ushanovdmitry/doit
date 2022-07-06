@@ -35,11 +35,7 @@ if __name__ == '__main__':
         depends_on=[FileDep("task 1 res.txt")]
     )
 
-    print(dag.to_graphviz())
-
-    back = DictBackend(dag.dag_name)
+    back = DictBackend(dag.dag_name, ".doit.json")
     dag.run(back, targets=None)
 
-    pprint.pprint(
-        back.d
-    )
+    pprint.pprint(back.d)
