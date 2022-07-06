@@ -1,8 +1,6 @@
 """Task runner"""
 import dataclasses
 from multiprocessing import Process, Queue as MQueue
-from graphlib import TopologicalSorter
-from collections import defaultdict
 from pathlib import Path
 from threading import Thread
 import pickle
@@ -12,7 +10,6 @@ from typing import List, Tuple
 import cloudpickle
 import loguru
 
-from . import DAG
 from .action import AbstractAction
 from .task import Task
 from .backend import Backend
@@ -23,29 +20,6 @@ from .dependency import Dependency
 SUCCESS = 0
 FAILURE = 1
 ERROR = 2
-
-
-class Runner2:
-    def run_all(self, dag: DAG, backend: Backend):
-        graph = defaultdict(list)
-
-        for task in dag.name2task.values():
-            for dep in task.dependencies():
-                graph[task.name].append(dep.label())
-            for tar in task.targets():
-                graph[tar.label()].append(task.name)
-
-        ts = TopologicalSorter(graph)
-        ts.prepare()
-
-        while ts.is_active():
-            nodes = ts.get_ready()
-
-            for node in nodes:
-                if node in dag.name2task:
-                    task = dag.name2task[node]
-                    task.execute(backend)
-                ts.done(node)
 
 
 class Runner:

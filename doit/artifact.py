@@ -39,8 +39,12 @@ class ArtifactLabel(ABC):
 
 class FileArtifact(ArtifactLabel):
     def __init__(self, path, is_target: bool):
-        self._path = pathlib.Path(path).absolute()
+        self._path = pathlib.Path(path)  # .absolute()
         self._is_target = is_target
+
+    @property
+    def path(self):
+        return self._path
 
     def fingerprint(self) -> str:
         with self._path.open("rb") as f:
@@ -54,13 +58,13 @@ class FileArtifact(ArtifactLabel):
         return self._path.exists() and self._path.is_file()
 
     def label(self) -> str:
-        return "File artifact: " + self._path.__str__()
+        return "[File] " + self._path.__str__()
 
     def is_target(self) -> bool:
         return self._is_target
 
     def prepare_for_function_call(self):
-        return self._path
+        return self
 
 
 class FileTar(FileArtifact):

@@ -198,14 +198,14 @@ class PythonAction(AbstractAction):
     def __repr__(self):
         return "<PythonAction: '%s'>" % (repr(self.py_callable))
 
-    def get_all_dependencies(self) -> List[AbstractDependency]:
+    def get_all_dependencies(self) -> List[ArtifactLabel]:
         return [
             _ for _ in chain(self.args, self.kwargs.values())
-            if isinstance(_, AbstractDependency)
+            if isinstance(_, ArtifactLabel) and not _.is_target()
         ]
 
-    def get_all_targets(self) -> List[AbstractTarget]:
+    def get_all_targets(self) -> List[ArtifactLabel]:
         return [
             _ for _ in chain(self.args, self.kwargs.values())
-            if isinstance(_, AbstractTarget)
+            if isinstance(_, ArtifactLabel) and _.is_target()
         ]

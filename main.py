@@ -1,27 +1,39 @@
-from doit import DAG
-from doit.task import FileDep, FileTar
+from doit import DAG, FileDep, FileTar, DictBackend
 
-from pathlib import Path
+import pprint
 
 
-def foo(src: Path, target: Path):
-    with open(target, 'a') as t:
-        t.write("Hello world from %s" % src)
-    print("Done!")
+def foo(src: FileDep, target: FileTar):
+    with open(target.path, 'a') as t:
+        t.write("Hello world from %s" % src.path)
+    print("Done foo!")
 
 
 def bar():
-    print("Something!")
+    print("Something bar!")
 
 
 if __name__ == '__main__':
-    with DAG("main", ) as dag:
-        t1 = dag.py_task(
-            "task 1",
-            foo, kwargs={
-                "src": FileDep(Path("main.py")),
-                "target": FileTar(Path("task 1 res.txt"))}
-        )
+    dag = DAG("main", )
 
-    dag.run(targets=None)
+    t1 = dag.py_task(
+        "Task 1",
+        foo, kwargs={
+            "src": FileDep("main.py"),
+            "target": FileTar("task 1 res.txt")}
+    )
 
+    dag.py_task(
+        "Task 2",
+        bar,
+        depends_on=[FileDep("task 1 res.txt")]
+    )
+
+    print(dag.to_graphviz())
+
+    back = DictBackend(dag.dag_name)
+    dag.run(back, targets=None)
+
+    pprint.pprint(
+        back.d
+    )
