@@ -50,7 +50,7 @@ class Task:
         if self.always_execute:
             return True
 
-        if not self.dependencies():
+        if not list(self.dependencies()):
             # no dependencies => always execute
             return True
 

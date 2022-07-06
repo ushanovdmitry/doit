@@ -1,5 +1,6 @@
 import json
 from abc import ABC
+from typing import Union
 
 
 class Backend(ABC):
@@ -14,7 +15,7 @@ class Backend(ABC):
 
 
 class DictBackend(Backend):
-    def __init__(self, dag_name: str, filename: str):
+    def __init__(self, dag_name: str, filename: Union[str, None]):
         self.dag_name = dag_name
         self.filename = filename
         self.d = dict()
