@@ -6,7 +6,7 @@
 
 ## Task:
     - Action
-    - Dependencies of that action
+    - Dependencies/Targets
 
 ## Action:
     - Dependencies/Targets 

@@ -1,13 +1,9 @@
 import sys
-from typing import Any, Union, List
+from typing import Any, Union, List, Dict
 
-from doit.dependency import Dependency, DbmDB, MD5Checker, JSONCodec
-from doit.version import VERSION
-
-__version__ = VERSION
-
-from doit.action import PythonAction, AbstractDependency, AbstractTarget
-from doit.task import Task
+from .action import PythonAction
+from .task import Task
+from .artifact import ArtifactLabel
 
 
 class DAG:
@@ -17,11 +13,7 @@ class DAG:
         self.always_execute = always_execute
         self.continue_on_failure = continue_on_failure
 
-        self.dep_manager = Dependency(
-            DbmDB, '.doit.db', checker_cls=MD5Checker, codec_cls=JSONCodec
-        )
-
-        self.name2task = {}
+        self.name2task = {}  # type: Dict[str, Task]
 
     def __enter__(self):
         return self
@@ -35,17 +27,17 @@ class DAG:
         pass
 
     def py_task(self, name, py_callable, args=None, kwargs=None,
-                targets: List[AbstractTarget] = (), depends_on: List[AbstractDependency] = (),
-                always_execute=None, continue_on_failure=None,
-                depends_on_src=False, execute_ones=None):
+                targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
+                always_execute=None, execute_ones=None):
+
+        assert name not in self.name2task
 
         t = Task(name, PythonAction(py_callable, args, kwargs),
-                 implicit_dependencies=depends_on, implicit_targets=targets,
+                 implicit_dependencies=depends_on,
+                 implicit_targets=targets,
                  always_execute=always_execute,
-                 continue_on_failure=continue_on_failure,
                  execute_ones=execute_ones)
 
-        assert t.name not in self.name2task
         self.name2task[t.name] = t
 
     def cmd_task(self):
@@ -62,7 +54,7 @@ class DAG:
     def run(self, targets=None):
         from doit.runner import Runner2
 
-        runner_ = Runner2(self.dep_manager)
-        runner_.run_all(self)
+        runner_ = Runner2()
+        runner_.run_all(self, backend)
 
 

@@ -10,44 +10,19 @@ from typing import List, Any
 from loguru import logger
 
 
-class AbstractGraphNode(ABC):
-    pass
-
-
-class CanRepresentGraphNode(ABC):
-    def as_graph_node(self) -> AbstractGraphNode:
-        raise NotImplementedError()
-
-
-class AbstractDependency(CanRepresentGraphNode, ABC):
-    def is_up_to_date(self, backend):
-        raise NotImplementedError()
-
-    def value(self, backend) -> Any:
-        raise NotImplementedError()
-
-
-class AbstractTarget(CanRepresentGraphNode, ABC):
-    def exists(self, backend):
-        raise NotImplementedError()
-
-    def value(self, backend) -> Any:
-        raise NotImplementedError()
-
-    def store(self, backend):
-        raise NotImplementedError()
+from .artifact import ArtifactLabel
 
 
 class AbstractAction(ABC):
     """Base class for all actions"""
 
-    def execute(self, backend):
+    def execute(self):
         raise NotImplementedError()
 
-    def get_all_dependencies(self) -> List[AbstractDependency]:
+    def get_all_dependencies(self) -> List[ArtifactLabel]:
         raise NotImplementedError()
 
-    def get_all_targets(self) -> List[AbstractTarget]:
+    def get_all_targets(self) -> List[ArtifactLabel]:
         raise NotImplementedError()
 
 
@@ -202,7 +177,7 @@ class PythonAction(AbstractAction):
             msg = "%s kwargs must be a 'dict'. got '%s'"
             raise Exception(msg % (self.py_callable, self.kwargs))
 
-    def execute(self, backend):
+    def execute(self):
         """
         Execute command action
         """
@@ -211,12 +186,12 @@ class PythonAction(AbstractAction):
         kwargs = self.kwargs.copy()
 
         for i, a in enumerate(args):
-            if isinstance(a, (AbstractTarget, AbstractDependency)):
-                args[i] = a.value(backend)
+            if isinstance(a, ArtifactLabel):
+                args[i] = a.prepare_for_function_call()
 
         for k, v in kwargs.items():
-            if isinstance(v, (AbstractTarget, AbstractDependency)):
-                kwargs[k] = v.value(backend)
+            if isinstance(v, ArtifactLabel):
+                kwargs[k] = v.prepare_for_function_call()
 
         self.py_callable(*args, **kwargs)
 

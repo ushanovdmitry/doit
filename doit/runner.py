@@ -13,10 +13,9 @@ import cloudpickle
 import loguru
 
 from . import DAG
-from .action import CanRepresentGraphNode, AbstractGraphNode
-from .exceptions import InvalidTask, BaseFail
-from .exceptions import TaskFailed, SetupError, DependencyError, UnmetDependency
-from .task import Task, TaskGraphNode
+from .action import AbstractAction
+from .task import Task
+from .backend import Backend
 
 from .dependency import Dependency
 
@@ -26,32 +25,15 @@ FAILURE = 1
 ERROR = 2
 
 
-@dataclasses.dataclass(frozen=True, unsafe_hash=True)
-class _NodeFileDep:
-    path: Path
-
-
-@dataclasses.dataclass(frozen=True, unsafe_hash=True)
-class _NodeTask:
-    name: str
-
-
-def _depends_on(graph: dict, node: CanRepresentGraphNode, depends_on: CanRepresentGraphNode):
-    graph[node.as_graph_node()].append(depends_on.as_graph_node())
-
-
 class Runner2:
-    def __init__(self, dep_manager: Dependency):
-        self.dep_manager = dep_manager
-
-    def run_all(self, dag: DAG):
+    def run_all(self, dag: DAG, backend: Backend):
         graph = defaultdict(list)
 
         for task in dag.name2task.values():
             for dep in task.dependencies():
-                _depends_on(graph, task, dep)
+                graph[task.name].append(dep.label())
             for tar in task.targets():
-                _depends_on(graph, tar, task)
+                graph[tar.label()].append(task.name)
 
         ts = TopologicalSorter(graph)
         ts.prepare()
@@ -59,15 +41,11 @@ class Runner2:
         while ts.is_active():
             nodes = ts.get_ready()
 
-            for node in nodes:  # type: AbstractGraphNode
-                if not isinstance(node, TaskGraphNode):
-                    ts.done(node)
-                else:
-                    task = dag.name2task[node.name]  # type: Task
-
-                    task.execute(backend=None)
-
-                    ts.done(node)
+            for node in nodes:
+                if node in dag.name2task:
+                    task = dag.name2task[node]
+                    task.execute(backend)
+                ts.done(node)
 
 
 class Runner:
