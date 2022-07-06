@@ -10,11 +10,10 @@ from .backend import Backend
 
 
 class DAG:
-    def __init__(self, dag_name: str, always_execute=False, continue_on_failure=False):
+    def __init__(self, dag_name: str, always_execute=False):
         self.dag_name = dag_name
 
         self.always_execute = always_execute
-        self.continue_on_failure = continue_on_failure
 
         self.name2task = {}  # type: Dict[str, Task]
 
@@ -22,6 +21,9 @@ class DAG:
                 targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
                 depends_on_tasks: List[Task] = (),
                 always_execute=None, execute_ones=None):
+
+        if always_execute is None:
+            always_execute = self.always_execute
 
         assert name not in self.name2task
 
