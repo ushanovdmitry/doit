@@ -3,6 +3,7 @@ import unittest
 from .dag import DAG
 from .backend import DictBackend
 from .artifact import InMemoryArtifact, FileDep
+from .action import delayed
 
 
 class IntegrationTest(unittest.TestCase):
@@ -22,8 +23,8 @@ class IntegrationTest(unittest.TestCase):
         art1 = InMemoryArtifact("task1res.txt", True)
         art2 = InMemoryArtifact("task2res.txt", True)
 
-        dag.py_task("Task #1", foo_1, args=[art1])
-        dag.py_task("Task #2", foo_2, args=[art2], depends_on=[art1])
+        dag.py_task("Task #1", delayed(foo_1)(art1))
+        dag.py_task("Task #2", delayed(foo_2)(art2), depends_on=[art1, ])
 
         back = DictBackend(dag.dag_name, None)
 
@@ -55,8 +56,8 @@ class IntegrationTest(unittest.TestCase):
         art1 = InMemoryArtifact("task1res.txt", True)
         art2 = InMemoryArtifact("task2res.txt", True)
 
-        t1 = dag.py_task("Task #1", foo_1, args=[art1])
-        dag.py_task("Task #2", foo_2, args=[art2], depends_on=[art1],
+        t1 = dag.py_task("Task #1", delayed(foo_1)(art1))
+        dag.py_task("Task #2", delayed(foo_2)(art2), depends_on=[art1],
                     depends_on_tasks=[t1, ])
 
         back = DictBackend(dag.dag_name, None)
