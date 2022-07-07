@@ -37,6 +37,7 @@ if __name__ == '__main__':
     )
 
     print(dag.to_graphviz())
+    dag.render_online('https://dreampuf.github.io/GraphvizOnline/#')
 
     back = DictBackend(dag.dag_name, ".doit.json")
     dag.run(back, targets=None)

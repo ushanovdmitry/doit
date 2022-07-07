@@ -104,3 +104,15 @@ class DAG:
                 d.edge(task, tar)
 
         return d.source()
+
+    def render_online(self, service_url: str, open_url=True) -> None:
+        import urllib.parse
+        import webbrowser
+
+        s = self.to_graphviz()
+
+        url = service_url + urllib.parse.quote(s, safe='')
+        print(f'{url}')
+
+        if open_url:
+            webbrowser.open(url, )
