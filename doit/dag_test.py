@@ -79,8 +79,8 @@ class DagTest(unittest.TestCase):
         fdep = FileDep(".")
 
         dag = DAG("main")
-        dag.py_task("Task 1", print)
-        dag.py_task(fdep.label(), print, depends_on=[FileDep(".")])
+        dag.py_task("Task 1", delayed(print)())
+        dag.py_task(fdep.label(), delayed(print)(), depends_on=[FileDep(".")])
 
         with self.assertRaises(Exception) as context:
             dag.check_labels()
