@@ -103,6 +103,9 @@ class DAG:
             for tar in task.targets():
                 d.edge(task, tar)
 
+            for dep in task.implicit_task_dependencies:
+                d.edge(dep, task)
+
         return d.source()
 
     def render_online(self, service_url: str, open_url=True) -> None:

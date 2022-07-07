@@ -80,11 +80,22 @@ class FileDep(FileArtifact):
 class InMemoryArtifact(ArtifactLabel):
     label2data = {}  # type: Dict[str, str]
 
-    def __init__(self, label, is_target):
+    def __init__(self, label, is_target=None):
         self._label = label
         self._is_target = is_target
 
         self._fingerprint_calls = 0
+
+    def __str__(self):
+        return f"<Artifact: {self._label}>"
+
+    @property
+    def tar(self):
+        return InMemoryArtifact(self._label, True)
+
+    @property
+    def dep(self):
+        return InMemoryArtifact(self._label, False)
 
     def fingerprint(self) -> str:
         self._fingerprint_calls += 1
@@ -100,6 +111,7 @@ class InMemoryArtifact(ArtifactLabel):
         return self._label
 
     def is_target(self) -> bool:
+        assert self._is_target is not None
         return self._is_target
 
     def put_data(self, data: str):
