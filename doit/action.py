@@ -209,3 +209,19 @@ class PythonAction(AbstractAction):
             _ for _ in chain(self.args, self.kwargs.values())
             if isinstance(_, ArtifactLabel) and _.is_target()
         ]
+
+
+class _IncompletePythonAction:
+    def __init__(self, py_callable):
+        self.py_callable = py_callable
+
+    def __call__(self, *args, **kwargs):
+        return PythonAction(
+            self.py_callable,
+            args,
+            kwargs
+        )
+
+
+def delayed(py_callable):
+    return _IncompletePythonAction(py_callable)

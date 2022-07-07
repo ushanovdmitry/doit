@@ -1,7 +1,8 @@
+import dataclasses
 from itertools import chain
-from typing import List, Any
+from typing import List, Any, Callable, Tuple
 
-from .artifact import FileArtifact, ArtifactLabel
+from .artifact import FileArtifact, ArtifactLabel, InMemoryArtifact
 from .task import Task
 
 
@@ -16,9 +17,27 @@ def prepare_node(n: str):
     return n.replace('"', "").replace("\\", "\\\\")
 
 
+@dataclasses.dataclass
+class NodeRenderer:
+    label: Callable[[Any, ], str] = lambda x: x.label()
+    attrs: dict = None
+
+
+DEFAULT_STYLES: List[Tuple[Any, NodeRenderer]] = [
+    (Task, NodeRenderer(lambda x: x.name, dict(shape="oval", color="gold"))),
+    (FileArtifact, NodeRenderer(lambda x: x.label(), dict(shape="rectangle"))),
+    (InMemoryArtifact, NodeRenderer(lambda x: x.label(), dict(shape="rectangle", color="blue"))),
+    (ArtifactLabel, NodeRenderer(lambda x: x.label(), dict())),
+]
+
+
 class Digraph:
-    def __init__(self):
+    def __init__(self, styles: List[Tuple[Any, NodeRenderer]] = None):
+        if styles is None:
+            styles = DEFAULT_STYLES
+
         self.lines = []
+        self.styles = styles
 
         self.visited_nodes = set()
 
@@ -43,23 +62,12 @@ class Digraph:
         )
 
     def node(self, node) -> str:
-        if isinstance(node, Task):
-            self.raw_node(
-                node.name,
-                shape="oval", color="gold", style="filled"
-            )
-            return node.name
-
-        if isinstance(node, FileArtifact):
-            self.raw_node(
-                node.label(),
-                shape="folder"
-            )
-            return node.label()
-
-        if isinstance(node, ArtifactLabel):
-            self.raw_node(node.label())
-            return node.label()
+        for klass, nr in self.styles:
+            if isinstance(node, klass):
+                self.raw_node(
+                    nr.label(node), **nr.attrs
+                )
+                return nr.label(node)
 
         raise NotImplementedError()
 

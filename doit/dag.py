@@ -18,7 +18,7 @@ class DAG:
 
         self.name2task = {}  # type: Dict[str, Task]
 
-    def py_task(self, name, py_callable, args=None, kwargs=None,
+    def py_task(self, name, action: PythonAction,
                 targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
                 depends_on_tasks: List[Task] = (),
                 always_execute=None, execute_ones=None):
@@ -28,7 +28,7 @@ class DAG:
 
         assert name not in self.name2task
 
-        t = Task(name, PythonAction(py_callable, args, kwargs),
+        t = Task(name, action,
                  implicit_dependencies=depends_on,
                  implicit_targets=targets,
                  implicit_task_dependencies=depends_on_tasks,
