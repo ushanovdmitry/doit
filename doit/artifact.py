@@ -1,7 +1,7 @@
 from abc import ABC
 import pathlib
 import hashlib
-from typing import Any
+from typing import Any, Dict
 
 
 class ArtifactLabel(ABC):
@@ -76,3 +76,32 @@ class FileDep(FileArtifact):
     def __init__(self, path):
         super(FileDep, self).__init__(path, False)
 
+
+class InMemoryArtifact(ArtifactLabel):
+    label2data = {}  # type: Dict[str, str]
+
+    def __init__(self, label, is_target):
+        self._label = label
+        self._is_target = is_target
+
+        self._fingerprint_calls = 0
+
+    def fingerprint(self) -> str:
+        self._fingerprint_calls += 1
+
+        file_hash = hashlib.md5()
+        file_hash.update(self.label2data[self._label].encode('utf-8'))
+        return file_hash.hexdigest()
+
+    def exists(self) -> bool:
+        return self._label in self.label2data
+
+    def label(self) -> str:
+        return self._label
+
+    def is_target(self) -> bool:
+        return self._is_target
+
+    def put_data(self, data: str):
+        assert self._is_target
+        self.label2data[self._label] = data

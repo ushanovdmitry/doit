@@ -70,16 +70,16 @@ class Task:
             # no dependencies => always execute
             return True
 
-        for dep in self.dependencies():
+        for other in self.implicit_task_dependencies:  # type: Task
             try:
-                if dep.fingerprint() != backend.get_task_run_with(self.name, dep.label()):
+                if backend.get_task_fingerprint(other.name) != backend.get_task_run_with(self.name, other.name):
                     return True
             except KeyError:
                 return True
 
-        for other in self.implicit_task_dependencies:  # type: Task
+        for dep in self.dependencies():
             try:
-                if backend.get_task_fingerprint(other.name) != backend.get_task_run_with(self.name, other.name):
+                if backend.get_task_run_with(self.name, dep.label()) != dep.fingerprint():
                     return True
             except KeyError:
                 return True

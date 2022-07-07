@@ -1,29 +1,29 @@
 import unittest
-from pathlib import Path
 
 from .dag import DAG
 from .backend import DictBackend
-from .artifact import FileDep, FileTar
+from .artifact import InMemoryArtifact, FileDep
 
 
 class IntegrationTest(unittest.TestCase):
     def test_1(self):
         glval = []
 
-        def foo_1(target: FileTar):
-            with open(target.path, 'w') as out:
-                out.write('foo 1')
+        def foo_1(target: InMemoryArtifact):
+            target.put_data('foo 1')
             glval.append('1')
 
-        def foo_2(target: FileTar):
-            with open(target.path, 'w') as out:
-                out.write('foo 2')
+        def foo_2(target: InMemoryArtifact):
+            target.put_data('foo 2')
             glval.append('2')
 
         dag = DAG("main")
 
-        dag.py_task("Task #1", foo_1, args=[FileTar("task1res.txt")])
-        dag.py_task("Task #2", foo_2, args=[FileTar("task2res.txt")], depends_on=[FileDep("task1res.txt")])
+        art1 = InMemoryArtifact("task1res.txt", True)
+        art2 = InMemoryArtifact("task2res.txt", True)
+
+        dag.py_task("Task #1", foo_1, args=[art1])
+        dag.py_task("Task #2", foo_2, args=[art2], depends_on=[art1])
 
         back = DictBackend(dag.dag_name, None)
 
@@ -36,23 +36,27 @@ class IntegrationTest(unittest.TestCase):
         dag.run(back)
         self.assertEqual(['1', '2', '1', ], glval)
 
+        # check number of calls to fingerprint
+        self.assertEqual(2, art1._fingerprint_calls)
+
     def test_2(self):
         glval = []
 
-        def foo_1(target: FileTar):
-            with open(target.path, 'w') as out:
-                out.write('foo 1')
+        def foo_1(target: InMemoryArtifact):
+            target.put_data('foo 1')
             glval.append('1')
 
-        def foo_2(target: FileTar):
-            with open(target.path, 'w') as out:
-                out.write('foo 2')
+        def foo_2(target: InMemoryArtifact):
+            target.put_data('foo 2')
             glval.append('2')
 
         dag = DAG("main")
 
-        t1 = dag.py_task("Task #1", foo_1, args=[FileTar("task1res.txt")])
-        dag.py_task("Task #2", foo_2, args=[FileTar("task2res.txt")], depends_on=[FileDep("task1res.txt")],
+        art1 = InMemoryArtifact("task1res.txt", True)
+        art2 = InMemoryArtifact("task2res.txt", True)
+
+        t1 = dag.py_task("Task #1", foo_1, args=[art1])
+        dag.py_task("Task #2", foo_2, args=[art2], depends_on=[art1],
                     depends_on_tasks=[t1, ])
 
         back = DictBackend(dag.dag_name, None)
@@ -68,6 +72,8 @@ class IntegrationTest(unittest.TestCase):
         dag.run(back)
         self.assertEqual(['1', '2', '1', '2'], glval, msg="ignore t1 => second task shouldn't get executed too...")
 
+
+class DagTest(unittest.TestCase):
     def test_check_labels(self):
         fdep = FileDep(".")
 
