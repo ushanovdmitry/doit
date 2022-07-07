@@ -9,6 +9,10 @@ from .action import AbstractAction
 from .artifact import ArtifactLabel
 from .backend import Backend
 
+import loguru
+
+logger = loguru.logger
+
 
 @dataclasses.dataclass
 class Task:
@@ -61,31 +65,48 @@ class Task:
 
     def need_execute(self, backend: Backend):
         if self.ignore:
+            logger.info(f"Do not execute {self} because it is ignored")
             return False
 
         if self.always_execute:
+            logger.info(f"Execute {self} because it is always executed")
             return True
 
         if not list(self.dependencies()):
             # no dependencies => always execute
+            logger.info(f"Execute {self} because it has no dependencies")
             return True
 
         for other in self.implicit_task_dependencies:  # type: Task
             try:
-                if backend.get_task_fingerprint(other.name) != backend.get_task_run_with(self.name, other.name):
-                    return True
+                task_fp = backend.get_task_fingerprint(other.name)
             except KeyError:
+                logger.info(f"Execute {self} because {other} current fingerprint is missing in backend")
+                return True
+
+            try:
+                task_rw_fp = backend.get_task_run_with(self.name, other.name)
+            except KeyError:
+                logger.info(f"Execute {self} because {other} previous fingerprint is missing in backend")
+                return True
+
+            if task_fp != task_rw_fp:
+                logger.info(f"Execute {self} because parent task {other} was updated")
                 return True
 
         for dep in self.dependencies():
             try:
                 if backend.get_task_run_with(self.name, dep.label()) != dep.fingerprint():
+                    logger.info(f"Execute {self} because {dep} was updated")
                     return True
             except KeyError:
+                logger.info(f"Execute {self} because {dep} fingerprint is missing in backend")
                 return True
 
         for tar in self.targets():
             if not tar.exists():
+                logger.info(f"Execute {self} because target {tar} does not exists")
                 return True
 
+        logger.info(f"Do not execute {self} because it is up-to-date")
         return False

@@ -9,6 +9,8 @@ from .task import Task
 from .artifact import ArtifactLabel
 from .backend import Backend
 
+from loguru import logger
+
 
 class DAG:
     def __init__(self, dag_name: str, always_execute=False):
@@ -17,6 +19,9 @@ class DAG:
         self.always_execute = always_execute
 
         self.name2task = {}  # type: Dict[str, Task]
+
+    def __str__(self):
+        return f"<DAG: {self.dag_name}>"
 
     def py_task(self, name, action: PythonAction,
                 targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
@@ -80,6 +85,8 @@ class DAG:
         ts = TopologicalSorter(graph)
         ts.prepare()
 
+        logger.info(f"Start {self}")
+
         while ts.is_active():
             nodes = ts.get_ready()
 
@@ -88,6 +95,8 @@ class DAG:
                     task = self.name2task[node]
                     task.execute(backend)
                 ts.done(node)
+
+        logger.info(f"Done {self}")
 
         backend.flush()
 
