@@ -4,6 +4,19 @@ from .dag import DAG
 from .backend import DictBackend
 from .artifact import InMemoryArtifact, FileDep
 from .action import delayed
+from .reporter import ExecutionReporter, DagEvent, TaskEvent
+
+
+class Rep(ExecutionReporter):
+    def __init__(self):
+        self.t = []
+        self.d = []
+
+    def task(self, event: TaskEvent, task_name: str, reason: str):
+        self.t.append(event)
+
+    def dag(self, event: DagEvent, dag_name: str):
+        self.d.append(event)
 
 
 class IntegrationTest(unittest.TestCase):
@@ -18,7 +31,8 @@ class IntegrationTest(unittest.TestCase):
             target.put_data('foo 2')
             glval.append('2')
 
-        dag = DAG("main")
+        rep = Rep()
+        dag = DAG("main", reporter=rep)
 
         art1 = InMemoryArtifact("task1res.txt", True)
         art2 = InMemoryArtifact("task2res.txt", True)
@@ -31,11 +45,14 @@ class IntegrationTest(unittest.TestCase):
         # first run: all tasks should be executed
         dag.run(back)
         self.assertEqual(['1', '2'], glval)
+        self.assertEqual([TaskEvent.EXECUTE, TaskEvent.EXECUTE], rep.t)
 
         # second run: only first should be executed - not dependencies
         # second task is not executed - md5 of files not changed
         dag.run(back)
         self.assertEqual(['1', '2', '1', ], glval)
+        self.assertEqual([TaskEvent.EXECUTE, TaskEvent.EXECUTE,
+                          TaskEvent.EXECUTE, TaskEvent.SKIP], rep.t)
 
         # check number of calls to fingerprint
         self.assertEqual(2, art1._fingerprint_calls)
@@ -51,7 +68,8 @@ class IntegrationTest(unittest.TestCase):
             target.put_data('foo 2')
             glval.append('2')
 
-        dag = DAG("main")
+        rep = Rep()
+        dag = DAG("main", reporter=rep)
 
         art1 = InMemoryArtifact("task1res.txt", True)
         art2 = InMemoryArtifact("task2res.txt", True)
@@ -65,7 +83,12 @@ class IntegrationTest(unittest.TestCase):
         # Do two runs in a row
         # As task dependency clearly stated in the depends_on_tasks param, both tasks should be executed
         dag.run(back)
+        self.assertEqual([DagEvent.START, DagEvent.DONE], rep.d)
+        self.assertEqual([TaskEvent.EXECUTE, TaskEvent.EXECUTE], rep.t)
+
         dag.run(back)
+        self.assertEqual([DagEvent.START, DagEvent.DONE, DagEvent.START, DagEvent.DONE], rep.d)
+        self.assertEqual([TaskEvent.EXECUTE, TaskEvent.EXECUTE, TaskEvent.EXECUTE, TaskEvent.EXECUTE], rep.t)
         self.assertEqual(['1', '2', '1', '2'], glval)
 
         # ignore t1 => second task shouldn't get executed too...

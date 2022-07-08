@@ -1,5 +1,6 @@
 from doit import DAG, DictBackend, delayed, FileDep, FileTar
 from doit.artifact import InMemoryArtifact
+from doit.reporter import TaskEvent
 
 from pathlib import Path
 import time
@@ -17,7 +18,8 @@ def create_dag() -> DAG:
     for f in Path(r"C:\Users\Dmitrii\Desktop\many_files").glob("*.md"):
         dag.py_task(
             f"Parse {f}",
-            delayed(process_file)(file=FileDep(f), target=InMemoryArtifact("artifact").tar)
+            delayed(process_file)(file=FileDep(f), target=InMemoryArtifact("artifact").tar),
+            reporter=dag.reporter.filter_events(keep_task_events=(TaskEvent.EXECUTE, ))
         )
 
     return dag
@@ -28,7 +30,7 @@ def main():
 
     while True:
         dag = create_dag()
-        dag.render_online('https://dreampuf.github.io/GraphvizOnline/#')
+        # dag.render_online('https://dreampuf.github.io/GraphvizOnline/#')
 
         dag.run(backend, )
 

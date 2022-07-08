@@ -70,16 +70,16 @@ class Task:
 
     def need_execute(self, backend: Backend):
         if self.ignore:
-            self.execution_reporter.on_task_event(TaskEvent.SKIP, str(self), "it is ignored")
+            self.execution_reporter.task(TaskEvent.SKIP, str(self), "it is ignored")
             return False
 
         if self.always_execute:
-            self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self), "it is always executed")
+            self.execution_reporter.task(TaskEvent.EXECUTE, str(self), "it is always executed")
             return True
 
         if not list(self.dependencies()):
             # no dependencies => always execute
-            self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self), "it has no dependencies")
+            self.execution_reporter.task(TaskEvent.EXECUTE, str(self), "it has no dependencies")
             return True
 
         for other in self.implicit_task_dependencies:  # type: Task
@@ -91,32 +91,26 @@ class Task:
             try:
                 task_rw_fp = backend.get_task_run_with(self.name, other.name)
             except KeyError:
-                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
-                                                      f"depends now on {other}")
+                self.execution_reporter.task(TaskEvent.EXECUTE, str(self), f"depends now on {other}")
                 return True
 
             if task_fp != task_rw_fp:
-                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
-                                                      f"{other} has been updated")
+                self.execution_reporter.task(TaskEvent.EXECUTE, str(self), f"{other} has been updated")
                 return True
 
         for dep in self.dependencies():
             try:
                 if backend.get_task_run_with(self.name, dep.label()) != dep.fingerprint():
-                    self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
-                                                          f"{dep} was updated")
+                    self.execution_reporter.task(TaskEvent.EXECUTE, str(self), f"{dep} was updated")
                     return True
             except KeyError:
-                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
-                                                      f"{dep} fingerprint is missing from backend")
+                self.execution_reporter.task(TaskEvent.EXECUTE, str(self), f"{dep} fingerprint is missing from backend")
                 return True
 
         for tar in self.targets():
             if not tar.exists():
-                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
-                                                      f"{tar} does not exist")
+                self.execution_reporter.task(TaskEvent.EXECUTE, str(self), f"{tar} does not exist")
                 return True
 
-        self.execution_reporter.on_task_event(TaskEvent.SKIP, str(self),
-                                              f"it is up-to-date")
+        self.execution_reporter.task(TaskEvent.SKIP, str(self), f"it is up-to-date")
         return False

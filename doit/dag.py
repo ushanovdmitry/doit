@@ -121,7 +121,7 @@ class DAG:
         ts = TopologicalSorter(graph)
         ts.prepare()
 
-        self.reporter.on_dag_event(DagEvent.START, self.dag_name)
+        self.reporter.dag(DagEvent.START, self.dag_name)
 
         while ts.is_active():
             nodes = ts.get_ready()
@@ -132,7 +132,7 @@ class DAG:
                     task.execute(backend)
                 ts.done(node)
 
-        self.reporter.on_dag_event(DagEvent.DONE, self.dag_name)
+        self.reporter.dag(DagEvent.DONE, self.dag_name)
 
         backend.flush()
 
