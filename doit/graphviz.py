@@ -2,7 +2,7 @@ import dataclasses
 from itertools import chain
 from typing import List, Any, Callable, Tuple, Set
 
-from .artifact import FileArtifact, ArtifactLabel, InMemoryArtifact
+from .artifact import File, ArtifactLabel, InMemoryArtifact
 from .task import Task
 
 
@@ -25,7 +25,7 @@ class NodeRenderer:
 
 DEFAULT_STYLES: List[Tuple[Any, NodeRenderer]] = [
     (Task, NodeRenderer(lambda x: x.name, dict(shape="oval", color="gold"))),
-    (FileArtifact, NodeRenderer(lambda x: x.label(), dict(shape="rectangle"))),
+    (File, NodeRenderer(lambda x: x.label(), dict(shape="rectangle"))),
     (InMemoryArtifact, NodeRenderer(lambda x: x.label(), dict(shape="rectangle", color="blue"))),
     (ArtifactLabel, NodeRenderer(lambda x: x.label(), dict())),
 ]

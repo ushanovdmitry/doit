@@ -10,7 +10,7 @@ from typing import List, Any
 from loguru import logger
 
 
-from .artifact import ArtifactLabel
+from .artifact import ArtifactLabel, AsDependencyArtifact, AsTargetArtifact
 
 
 class AbstractAction(ABC):
@@ -186,29 +186,32 @@ class PythonAction(AbstractAction):
         kwargs = self.kwargs.copy()
 
         for i, a in enumerate(args):
-            if isinstance(a, ArtifactLabel):
-                args[i] = a.prepare_for_function_call()
+            if isinstance(a, (AsDependencyArtifact, AsTargetArtifact)):
+                args[i] = a.a.prepare_for_function_call()
 
         for k, v in kwargs.items():
-            if isinstance(v, ArtifactLabel):
-                kwargs[k] = v.prepare_for_function_call()
+            if isinstance(v, (AsDependencyArtifact, AsTargetArtifact)):
+                kwargs[k] = v.a.prepare_for_function_call()
 
         self.py_callable(*args, **kwargs)
 
     def __repr__(self):
         return "<PythonAction: '%s'>" % (repr(self.py_callable))
 
+    def _gen(self, as_artifact_type):
+        for _ in chain(self.args, self.kwargs.values()):
+            if isinstance(_, ArtifactLabel):
+                raise Exception(f"Bare ArtifactLabel should not be used in *args or **kwargs of {self.__class__}. "
+                                f"Got {_.__class__}. Please use .dep or .tar method.")
+
+            if isinstance(_, as_artifact_type):
+                yield _.a
+
     def get_all_dependencies(self) -> List[ArtifactLabel]:
-        return [
-            _ for _ in chain(self.args, self.kwargs.values())
-            if isinstance(_, ArtifactLabel) and not _.is_target()
-        ]
+        return list(self._gen(AsDependencyArtifact))
 
     def get_all_targets(self) -> List[ArtifactLabel]:
-        return [
-            _ for _ in chain(self.args, self.kwargs.values())
-            if isinstance(_, ArtifactLabel) and _.is_target()
-        ]
+        return list(self._gen(AsTargetArtifact))
 
 
 class _IncompletePythonAction:

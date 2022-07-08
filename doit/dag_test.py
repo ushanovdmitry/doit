@@ -2,7 +2,7 @@ import unittest
 
 from .dag import DAG
 from .backend import DictBackend
-from .artifact import InMemoryArtifact, FileDep
+from .artifact import InMemoryArtifact, File
 from .action import delayed
 from .reporter import ExecutionReporter, DagEvent, TaskEvent
 
@@ -34,11 +34,11 @@ class IntegrationTest(unittest.TestCase):
         rep = Rep()
         dag = DAG("main", reporter=rep)
 
-        art1 = InMemoryArtifact("task1res.txt", True)
-        art2 = InMemoryArtifact("task2res.txt", True)
+        art1 = InMemoryArtifact("task1res.txt")
+        art2 = InMemoryArtifact("task2res.txt")
 
-        dag.py_task("Task #1", delayed(foo_1)(art1))
-        dag.py_task("Task #2", delayed(foo_2)(art2), depends_on=[art1, ])
+        dag.py_task("Task #1", delayed(foo_1)(art1.tar))
+        dag.py_task("Task #2", delayed(foo_2)(art2.tar), depends_on=[art1, ])
 
         back = DictBackend(dag.dag_name, None)
 
@@ -71,11 +71,11 @@ class IntegrationTest(unittest.TestCase):
         rep = Rep()
         dag = DAG("main", reporter=rep)
 
-        art1 = InMemoryArtifact("task1res.txt", True)
-        art2 = InMemoryArtifact("task2res.txt", True)
+        art1 = InMemoryArtifact("task1res.txt")
+        art2 = InMemoryArtifact("task2res.txt")
 
-        t1 = dag.py_task("Task #1", delayed(foo_1)(art1))
-        dag.py_task("Task #2", delayed(foo_2)(art2), depends_on=[art1],
+        t1 = dag.py_task("Task #1", delayed(foo_1)(art1.tar))
+        dag.py_task("Task #2", delayed(foo_2)(art2.tar), depends_on=[art1],
                     depends_on_tasks=[t1, ])
 
         back = DictBackend(dag.dag_name, None)
@@ -99,11 +99,11 @@ class IntegrationTest(unittest.TestCase):
 
 class DagTest(unittest.TestCase):
     def test_check_labels(self):
-        fdep = FileDep(".")
+        fdep = File(".")
 
         dag = DAG("main")
         dag.py_task("Task 1", delayed(print)())
-        dag.py_task(fdep.label(), delayed(print)(), depends_on=[FileDep(".")])
+        dag.py_task(fdep.label(), delayed(print)(), depends_on=[File(".")])
 
         with self.assertRaises(Exception) as context:
             dag.check_labels()

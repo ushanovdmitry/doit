@@ -24,23 +24,42 @@ class ArtifactLabel(ABC):
         """
         raise NotImplementedError()
 
-    def is_target(self) -> bool:
-        """
-        Type of artifact: target or dependency (this used in particular context)
-        """
-        raise NotImplementedError()
-
     def prepare_for_function_call(self) -> Any:
         """
         Helper for File-like targets
         """
         return self
 
+    @property
+    def tar(self):
+        """
+        Make target to use in *args and **kwargs
+        """
+        return AsTargetArtifact(self)
 
-class FileArtifact(ArtifactLabel):
-    def __init__(self, path, is_target: bool):
+    @property
+    def dep(self):
+        """
+        Make dependency to use in *args and **kwargs
+        """
+        return AsDependencyArtifact(self)
+
+
+class AsDependencyArtifact:
+    def __init__(self, a: ArtifactLabel):
+        self.a = a
+
+
+class AsTargetArtifact:
+    def __init__(self, a: ArtifactLabel):
+        self.a = a
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+class File(ArtifactLabel):
+    def __init__(self, path):
         self._path = pathlib.Path(path).resolve()
-        self._is_target = is_target
 
     @property
     def path(self):
@@ -60,42 +79,19 @@ class FileArtifact(ArtifactLabel):
     def label(self) -> str:
         return "[File] " + self._path.__str__()
 
-    def is_target(self) -> bool:
-        return self._is_target
-
     def prepare_for_function_call(self):
         return self
-
-
-class FileTar(FileArtifact):
-    def __init__(self, path):
-        super(FileTar, self).__init__(path, True)
-
-
-class FileDep(FileArtifact):
-    def __init__(self, path):
-        super(FileDep, self).__init__(path, False)
 
 
 class InMemoryArtifact(ArtifactLabel):
     label2data = {}  # type: Dict[str, str]
 
-    def __init__(self, label, is_target=None):
+    def __init__(self, label):
         self._label = label
-        self._is_target = is_target
-
         self._fingerprint_calls = 0
 
     def __str__(self):
         return f"<Artifact: {self._label}>"
-
-    @property
-    def tar(self):
-        return InMemoryArtifact(self._label, True)
-
-    @property
-    def dep(self):
-        return InMemoryArtifact(self._label, False)
 
     def fingerprint(self) -> str:
         self._fingerprint_calls += 1
@@ -110,10 +106,5 @@ class InMemoryArtifact(ArtifactLabel):
     def label(self) -> str:
         return self._label
 
-    def is_target(self) -> bool:
-        assert self._is_target is not None
-        return self._is_target
-
     def put_data(self, data: str):
-        assert self._is_target
         self.label2data[self._label] = data

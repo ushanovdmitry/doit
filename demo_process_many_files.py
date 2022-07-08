@@ -1,4 +1,4 @@
-from doit import DAG, DictBackend, delayed, FileDep, FileTar
+from doit import DAG, DictBackend, delayed, File
 from doit.artifact import InMemoryArtifact
 from doit.reporter import TaskEvent
 
@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 
 
-def process_file(file: FileTar, target: InMemoryArtifact):
+def process_file(file: File, target: InMemoryArtifact):
     target.put_data(
         file.path.read_text(encoding='utf-8')
     )
@@ -18,7 +18,7 @@ def create_dag() -> DAG:
     for f in Path(r"C:\Users\Dmitrii\Desktop\many_files").glob("*.md"):
         dag.py_task(
             f"Parse {f}",
-            delayed(process_file)(file=FileDep(f), target=InMemoryArtifact("artifact").tar),
+            delayed(process_file)(file=File(f).dep, target=InMemoryArtifact("artifact").tar),
             reporter=dag.reporter.filter_events(keep_task_events=(TaskEvent.EXECUTE, ))
         )
 
