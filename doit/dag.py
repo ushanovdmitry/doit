@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Any, Union, List, Dict
+from typing import Any, Union, List, Dict, Set
 
 from graphlib import TopologicalSorter
 from collections import defaultdict
@@ -10,6 +10,33 @@ from .artifact import ArtifactLabel
 from .backend import Backend
 
 from loguru import logger
+
+
+def _get_subgraph(graph, labels: Set[str]):
+    front = labels
+
+    res = defaultdict(list)
+
+    while front:
+        new_front = set()
+        for f in front:
+            assert f not in res
+            if f in graph:
+                res[f] = graph[f]
+                new_front.update(graph[f])
+        front = new_front
+
+    return res
+
+
+def _all_nodes(graph):
+    res = set()
+
+    for k, v in graph.items():
+        res.update([k])
+        res.update(v)
+
+    return res
 
 
 class DAG:
@@ -48,19 +75,24 @@ class DAG:
         pass
 
     def append(self, _task: Task):
-        assert _task.name not in self.name2task
-        self.name2task[_task.name] = _task
+        assert _task.label() not in self.name2task
+        self.name2task[_task.label()] = _task
 
-    def _create_dict_graph(self):
+    def _create_dict_graph(self, targets: list):
         graph = defaultdict(list)
 
         for task in self.name2task.values():
             for dep in task.dependencies():
-                graph[task.name].append(dep.label())
+                graph[task.label()].append(dep.label())
             for tar in task.targets():
-                graph[tar.label()].append(task.name)
+                graph[tar.label()].append(task.label())
             for other in task.implicit_task_dependencies:  # type: Task
-                graph[task.name].append(other.name)
+                graph[task.label()].append(other.label())
+
+        if targets is not None:
+            labels = set(t.label() for t in targets)
+
+            return _get_subgraph(graph, labels)
 
         return graph
 
@@ -80,7 +112,7 @@ class DAG:
     def run(self, backend: Backend, targets=None):
         self.check_labels()
 
-        graph = self._create_dict_graph()
+        graph = self._create_dict_graph(targets)
 
         ts = TopologicalSorter(graph)
         ts.prepare()
@@ -100,10 +132,17 @@ class DAG:
 
         backend.flush()
 
-    def to_graphviz(self) -> str:
+    def to_graphviz(self, targets=None) -> str:
         from .graphviz import Digraph
 
-        d = Digraph()
+        if targets is not None:
+            graph = self._create_dict_graph(targets)
+            d = Digraph(
+                target_nodes=set(t.label() for t in targets),
+                affected_nodes=_all_nodes(graph)
+            )
+        else:
+            d = Digraph()
 
         for task in self.name2task.values():
             for dep in task.dependencies():
@@ -117,11 +156,11 @@ class DAG:
 
         return d.source()
 
-    def render_online(self, service_url: str, open_url=True) -> None:
+    def render_online(self, service_url: str, targets=None, open_url=True) -> None:
         import urllib.parse
         import webbrowser
 
-        s = self.to_graphviz()
+        s = self.to_graphviz(targets)
 
         url = service_url + urllib.parse.quote(s, safe='')
         print(f'{url}')

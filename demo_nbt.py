@@ -84,11 +84,12 @@ def main():
         moreover_us=Table("moreover_us.total_score").dep
     ), depends_on_tasks=[t4, ])
 
-    dag.render_online('https://dreampuf.github.io/GraphvizOnline/#')
+    # dag.render_online('https://dreampuf.github.io/GraphvizOnline/#', targets=[Table("moreover_us.signal_info"), ])
+    # print(dag.to_graphviz(targets=[tt, ]))
 
     backend = DictBackend(dag.dag_name, ".eod.json")
-    dag.run(backend)
-    dag.run(backend)
+    dag.run(backend, targets=[Table("moreover_us.signal_info"), ])
+    dag.run(backend, targets=[Table("moreover_us.signal_info"), ])
 
 
 if __name__ == '__main__':

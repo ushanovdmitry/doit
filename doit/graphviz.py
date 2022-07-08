@@ -1,6 +1,6 @@
 import dataclasses
 from itertools import chain
-from typing import List, Any, Callable, Tuple
+from typing import List, Any, Callable, Tuple, Set
 
 from .artifact import FileArtifact, ArtifactLabel, InMemoryArtifact
 from .task import Task
@@ -32,16 +32,26 @@ DEFAULT_STYLES: List[Tuple[Any, NodeRenderer]] = [
 
 
 class Digraph:
-    def __init__(self, styles: List[Tuple[Any, NodeRenderer]] = None):
+    def __init__(self, target_nodes: Set[str] = None, affected_nodes: Set[str] = None,
+                 styles: List[Tuple[Any, NodeRenderer]] = None):
         if styles is None:
             styles = DEFAULT_STYLES
 
         self.lines = []
         self.styles = styles
 
+        self.target_nodes = target_nodes or {}
+        self.affected_nodes = affected_nodes or {}
+
         self.visited_nodes = set()
 
     def raw_node(self, node: str, **kwargs) -> None:
+        if node in self.target_nodes:
+            kwargs['color'] = 'red'
+        if node in self.affected_nodes:
+            kwargs['style'] = 'filled'
+            kwargs['fillcolor'] = 'lightgrey'
+
         node = prepare_node(node)
 
         if node in self.visited_nodes:

@@ -28,6 +28,9 @@ class Task:
     def __repr__(self):
         return f"<Task: {self.name}>"
 
+    def label(self):
+        return self.name
+
     def dependencies(self) -> chain[ArtifactLabel]:
         return chain(self.implicit_dependencies, self.action.get_all_dependencies())
 

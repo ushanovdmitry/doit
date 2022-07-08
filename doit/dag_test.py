@@ -85,6 +85,37 @@ class DagTest(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             dag.check_labels()
 
+    def test__get_subgraph(self):
+        from .dag import _get_subgraph
+
+        self.assertEqual(
+            {'a': ['b', 'c'], 'b': ['c', 'd']},
+            _get_subgraph({'a': ['b', 'c'], 'b': ['c', 'd']}, {'a'})
+        )
+
+        self.assertEqual(
+            {},
+            _get_subgraph({'a': ['b', 'c'], 'b': ['c', 'd']}, {'d'})
+        )
+
+        self.assertEqual(
+            {'b': ['c', 'd']},
+            _get_subgraph({'a': ['b', 'c'], 'b': ['c', 'd']}, {'b'})
+        )
+
+        self.assertEqual(
+            {},
+            _get_subgraph({'a': ['b', 'c'], 'b': ['c', 'd']}, {'x'})
+        )
+
+    def test__all_nodes(self):
+        from .dag import _all_nodes
+
+        self.assertEqual(
+            {'a', 'b', 'c', 'd'},
+            _all_nodes({'a': ['b', 'c'], 'b': ['c', 'd']})
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
