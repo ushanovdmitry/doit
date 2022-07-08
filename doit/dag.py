@@ -8,8 +8,7 @@ from .action import PythonAction
 from .task import Task
 from .artifact import ArtifactLabel
 from .backend import Backend
-
-from loguru import logger
+from .reporter import LogExecutionReporter, ExecutionReporter, DagEvent
 
 
 def _get_subgraph(graph, labels: Set[str]):
@@ -40,10 +39,11 @@ def _all_nodes(graph):
 
 
 class DAG:
-    def __init__(self, dag_name: str, always_execute=False):
+    def __init__(self, dag_name: str, always_execute=False, reporter: ExecutionReporter = LogExecutionReporter()):
         self.dag_name = dag_name
 
         self.always_execute = always_execute
+        self.reporter = reporter
 
         self.name2task = {}  # type: Dict[str, Task]
 
@@ -53,10 +53,13 @@ class DAG:
     def py_task(self, name, action: PythonAction,
                 targets: List[ArtifactLabel] = (), depends_on: List[ArtifactLabel] = (),
                 depends_on_tasks: List[Task] = (),
-                always_execute=None, execute_ones=None):
+                always_execute=None, execute_ones=None,
+                reporter: ExecutionReporter = None):
 
         if always_execute is None:
             always_execute = self.always_execute
+        if reporter is None:
+            reporter = self.reporter
 
         assert name not in self.name2task
 
@@ -65,7 +68,8 @@ class DAG:
                  implicit_targets=targets,
                  implicit_task_dependencies=depends_on_tasks,
                  always_execute=always_execute,
-                 execute_ones=execute_ones, ignore=False)
+                 execute_ones=execute_ones, ignore=False,
+                 execution_reporter=reporter)
 
         self.name2task[t.name] = t
 
@@ -117,7 +121,7 @@ class DAG:
         ts = TopologicalSorter(graph)
         ts.prepare()
 
-        logger.info(f"Start {self}")
+        self.reporter.on_dag_event(DagEvent.START, self.dag_name)
 
         while ts.is_active():
             nodes = ts.get_ready()
@@ -128,7 +132,7 @@ class DAG:
                     task.execute(backend)
                 ts.done(node)
 
-        logger.info(f"Done {self}")
+        self.reporter.on_dag_event(DagEvent.DONE, self.dag_name)
 
         backend.flush()
 

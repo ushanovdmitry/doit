@@ -8,10 +8,11 @@ from .action import AbstractAction
 
 from .artifact import ArtifactLabel
 from .backend import Backend
+from .reporter import ExecutionReporter, TaskEvent
 
-import loguru
 
-logger = loguru.logger
+class InconsistentBackend(Exception):
+    pass
 
 
 @dataclasses.dataclass
@@ -24,6 +25,7 @@ class Task:
     always_execute: bool
     execute_ones: bool
     ignore: bool
+    execution_reporter: ExecutionReporter
 
     def __repr__(self):
         return f"<Task: {self.name}>"
@@ -68,48 +70,53 @@ class Task:
 
     def need_execute(self, backend: Backend):
         if self.ignore:
-            logger.info(f"Do not execute {self} because it is ignored")
+            self.execution_reporter.on_task_event(TaskEvent.SKIP, str(self), "it is ignored")
             return False
 
         if self.always_execute:
-            logger.info(f"Execute {self} because it is always executed")
+            self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self), "it is always executed")
             return True
 
         if not list(self.dependencies()):
             # no dependencies => always execute
-            logger.info(f"Execute {self} because it has no dependencies")
+            self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self), "it has no dependencies")
             return True
 
         for other in self.implicit_task_dependencies:  # type: Task
             try:
                 task_fp = backend.get_task_fingerprint(other.name)
             except KeyError:
-                logger.info(f"Execute {self} because {other} current fingerprint is missing in backend")
-                return True
+                raise InconsistentBackend(f"{other} fingerprint is missing from backend")
 
             try:
                 task_rw_fp = backend.get_task_run_with(self.name, other.name)
             except KeyError:
-                logger.info(f"Execute {self} because {other} previous fingerprint is missing in backend")
+                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
+                                                      f"depends now on {other}")
                 return True
 
             if task_fp != task_rw_fp:
-                logger.info(f"Execute {self} because parent task {other} was updated")
+                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
+                                                      f"{other} has been updated")
                 return True
 
         for dep in self.dependencies():
             try:
                 if backend.get_task_run_with(self.name, dep.label()) != dep.fingerprint():
-                    logger.info(f"Execute {self} because {dep} was updated")
+                    self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
+                                                          f"{dep} was updated")
                     return True
             except KeyError:
-                logger.info(f"Execute {self} because {dep} fingerprint is missing in backend")
+                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
+                                                      f"{dep} fingerprint is missing from backend")
                 return True
 
         for tar in self.targets():
             if not tar.exists():
-                logger.info(f"Execute {self} because target {tar} does not exists")
+                self.execution_reporter.on_task_event(TaskEvent.EXECUTE, str(self),
+                                                      f"{tar} does not exist")
                 return True
 
-        logger.info(f"Do not execute {self} because it is up-to-date")
+        self.execution_reporter.on_task_event(TaskEvent.SKIP, str(self),
+                                              f"it is up-to-date")
         return False
