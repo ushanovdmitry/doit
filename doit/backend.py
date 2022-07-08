@@ -45,25 +45,26 @@ class DictBackend(Backend):
         return c
 
     def set_task_run_with(self, task_name: str, artifact_label2fingerprint: dict) -> None:
-        c = self.get_key(self.dag_name, "tasks", create=True)
-        c[task_name] = artifact_label2fingerprint.copy()
+        c = self.get_key(self.dag_name, "tasks", task_name, create=True)
+        c["dependencies_when_called"] = artifact_label2fingerprint.copy()
 
     def get_task_run_with(self, task_name: str, artifact_label: str) -> str:
         return self.get_key(
             self.dag_name,
             "tasks",
             task_name,
+            "dependencies_when_called",
             artifact_label,
             create=False
         )
 
     def get_task_fingerprint(self, task_name: str) -> None:
-        c = self.get_key(self.dag_name, "fingerprints", task_name)
+        c = self.get_key(self.dag_name, "tasks", task_name, "fingerprint")
         return c
 
     def set_task_fingerprint(self, task_name: str, fingerprint: str) -> None:
-        c = self.get_key(self.dag_name, "fingerprints", create=True)
-        c[task_name] = fingerprint
+        c = self.get_key(self.dag_name, "tasks", task_name, create=True)
+        c["fingerprint"] = fingerprint
 
     def flush(self):
         if self.filename is not None:
