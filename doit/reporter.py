@@ -3,14 +3,14 @@ from typing import Set
 
 
 class TaskEvent(Enum):
-    SKIP = "   SKIP"
-    IGNORE = " IGNORE"
-    EXECUTE = "EXECUTE"
+    SKIP = 1
+    IGNORE = 2
+    EXECUTE = 3
 
 
 class DagEvent(Enum):
-    START = "START"
-    DONE = " DONE"
+    START = 1
+    DONE = 2
 
 
 class ExecutionReporter:
@@ -58,9 +58,9 @@ class LogExecutionReporter(ExecutionReporter):
 
     def task(self, event: TaskEvent, task_name: str, reason: str):
         self.logger.info(
-            f"{event.value}: {task_name}: {reason}"
+            f"{event.name: >7}: {task_name}: {reason}"
         )
 
     def dag(self, event: DagEvent, dag_name: str):
-        self.logger.info(f"{event.value}: {dag_name}")
+        self.logger.info(f"{event.name: >5}: {dag_name}")
 
