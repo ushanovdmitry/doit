@@ -1,10 +1,11 @@
-from abc import ABC
 import pathlib
 import hashlib
 from typing import Any, Dict
 
+from .node import Node
 
-class ArtifactLabel(ABC):
+
+class ArtifactLabel(Node):
     def fingerprint(self) -> str:
         """
         String repr to check if artifact has changed

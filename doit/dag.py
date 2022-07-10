@@ -9,33 +9,51 @@ from .task import Task
 from .artifact import ArtifactLabel
 from .backend import Backend
 from .reporter import LogExecutionReporter, ExecutionReporter, DagEvent
+from .node import Node
 
 
-def _get_subgraph(graph, labels: Set[str]):
-    front = labels
+class DepGraph:
+    def __init__(self, dep_graph: Dict[str, List[str]], label2node: Dict[str, Node]):
+        """
 
-    res = defaultdict(list)
+        :param dep_graph: dictionary from node to a list if its dependencies (as in graphlib.TopologicalSorter)
+        """
+        self.dep_graph = dep_graph
+        self.label2node = label2node
 
-    while front:
-        new_front = set()
-        for f in front:
-            assert f not in res
-            if f in graph:
-                res[f] = graph[f]
-                new_front.update(graph[f])
-        front = new_front
+    def subgraph(self, labels: Set[str]):
+        front = labels
 
-    return res
+        res = defaultdict(list)
 
+        while front:
+            new_front = set()
+            for f in front:
+                assert f not in res
+                if f in self.dep_graph:
+                    res[f] = self.dep_graph[f]
+                    new_front.update(self.dep_graph[f])
+            front = new_front
 
-def _all_nodes(graph):
-    res = set()
+        return DepGraph(res)
 
-    for k, v in graph.items():
-        res.update([k])
-        res.update(v)
+    def all_nodes(self):
+        res = set()
 
-    return res
+        for k, v in self.dep_graph.items():
+            res.update([k])
+            res.update(v)
+
+        return res
+
+    def edges(self):
+        """
+        Yields pairs of the form (head, tail), where head depends on tail.
+        head <- tail
+        """
+        for k, v_ in self.dep_graph.items():
+            for v in v_:
+                yield k, v
 
 
 class DAG:
@@ -82,7 +100,7 @@ class DAG:
         assert _task.label() not in self.name2task
         self.name2task[_task.label()] = _task
 
-    def _create_dict_graph(self, targets: list):
+    def _create_dep_graph(self) -> DepGraph:
         graph = defaultdict(list)
 
         for task in self.name2task.values():
@@ -93,12 +111,17 @@ class DAG:
             for other in task.implicit_task_dependencies:  # type: Task
                 graph[task.label()].append(other.label())
 
-        if targets is not None:
-            labels = set(t.label() for t in targets)
+        return DepGraph(graph)
 
-            return _get_subgraph(graph, labels)
+    def _create_label2obj(self) -> Dict[str, Node]:
+        res = dict()  # type: Dict[str, Node]
 
-        return graph
+        for task in self.name2task.values():
+            res[task.label()] = task
+            for obj in chain(task.dependencies(), task.targets(), task.implicit_task_dependencies):
+                res[obj.label()] = obj
+
+        return res
 
     def check_labels(self):
         # check that no artifact has the same label as any of the tasks
@@ -116,9 +139,11 @@ class DAG:
     def run(self, backend: Backend, targets=None):
         self.check_labels()
 
-        graph = self._create_dict_graph(targets)
+        graph = self._create_dep_graph()
+        if targets is not None:
+            graph = graph.subgraph(set(_.label() for _ in targets))
 
-        ts = TopologicalSorter(graph)
+        ts = TopologicalSorter(graph.dep_graph)
         ts.prepare()
 
         self.reporter.dag(DagEvent.START, self.dag_name)
@@ -136,38 +161,16 @@ class DAG:
 
         backend.flush()
 
-    def to_graphviz(self, targets=None) -> str:
-        from .graphviz import Digraph
+    def to_graphviz(self, targets=None, node2group=None):
+        from .graphviz import Renderer
 
-        if targets is not None:
-            graph = self._create_dict_graph(targets)
-            d = Digraph(
-                target_nodes=set(t.label() for t in targets),
-                affected_nodes=_all_nodes(graph)
-            )
-        else:
-            d = Digraph()
+        full_graph = self._create_dep_graph()
+        label2obj = self._create_label2obj()
 
-        for task in self.name2task.values():
-            for dep in task.dependencies():
-                d.edge(dep, task)
+        target_labels = set() if targets is None else set(t.label() for t in targets)
+        affected_labels = set() if targets is None else full_graph.subgraph(target_labels).all_nodes()
 
-            for tar in task.targets():
-                d.edge(task, tar)
+        r = Renderer()
+        r.insert_dag(label2obj, full_graph, target_labels, affected_labels, node2group)
 
-            for dep in task.implicit_task_dependencies:
-                d.edge(dep, task)
-
-        return d.source()
-
-    def render_online(self, service_url: str, targets=None, open_url=True) -> None:
-        import urllib.parse
-        import webbrowser
-
-        s = self.to_graphviz(targets)
-
-        url = service_url + urllib.parse.quote(s, safe='')
-        print(f'{url}')
-
-        if open_url:
-            webbrowser.open(url, )
+        return r

@@ -10,13 +10,47 @@ from .artifact import ArtifactLabel
 from .backend import Backend
 from .reporter import ExecutionReporter, TaskEvent
 
+from .node import Node
+
 
 class InconsistentBackend(Exception):
     pass
 
 
+class AutoUpdate(ArtifactLabel):
+    def __init__(self, label: str, backend: Backend):
+        self._label = label
+        self.backend = backend
+
+        self._long_label = f"<AutoUpdate: {self._label}>: fingerprint"
+
+    def fingerprint(self) -> str:
+        return self.backend.get_key(self._long_label)
+
+    def update_fingerprint(self):
+        try:
+            prev_run = self.backend.get_key(self._long_label)
+            ix = int(prev_run.split(" ")[0]) + 1
+        except KeyError:
+            ix = 0
+
+        self.backend.set_key(self._long_label, f"{ix} @ {datetime.datetime.utcnow()}")
+
+    def exists(self) -> bool:
+        """
+        This type of artifact always exists
+        """
+        return True
+
+    def label(self) -> str:
+        return self._label
+
+    def __str__(self):
+        return f"<AutoUpdate: {self._label}>"
+
+
 @dataclasses.dataclass
-class Task:
+class Task(Node):
     name: str
     action: AbstractAction
     implicit_dependencies: List[ArtifactLabel]
@@ -67,6 +101,10 @@ class Task:
             ix = 0
 
         backend.set_task_fingerprint(self.name, f"{ix} @ {datetime.datetime.utcnow()}")
+
+        for tar in self.implicit_targets:
+            if isinstance(tar, AutoUpdate):
+                tar.update_fingerprint()
 
     def need_execute(self, backend: Backend):
         if self.ignore:
